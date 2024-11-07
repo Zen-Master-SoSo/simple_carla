@@ -1614,7 +1614,7 @@ class _SimpleCarla(CarlaHostDLL):
 
 	def connect(self, port1, port2):
 		if not self.patchbay_connect(True, port1.client_id, port1.port_id, port2.client_id, port2.port_id):
-			raise Exception("Patchbay connect failed {0} -> {1}".format(str(port1), str(port2)))
+			logging.error(f'Patchbay connect FAILED! {port1} -> {port2}')
 
 
 class Carla(_SimpleCarla):

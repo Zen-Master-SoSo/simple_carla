@@ -88,7 +88,7 @@ if __name__ == "__main__":
 	from PyQt5.QtCore import QCoreApplication
 	logging.basicConfig(
 		level=logging.DEBUG,
-		format="[%(filename)24s:%(lineno)3d] %(message)s"
+		format="[%(filename)24s:%(lineno)-4d] %(message)s"
 	)
 	with TestApp() as tester:
 		tester.wait_ready()
