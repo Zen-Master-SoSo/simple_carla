@@ -242,13 +242,24 @@ def polite_function(func):
 class _SimpleCarla(CarlaHostDLL):
 
 	idle_interval		= 1 / 50
+	instance			= None
 	__autoload_plugin	= None
 	__autoload_filename	= None
 
-	def __init__(self, client_name):
-		if not Carla.instance is None:
-			raise Exception("%s is a Singleton class - cannot create a new instance" % type(self).__name__)
+	# -------------------------------------------------------------------
+	# Singleton instantiation
 
+	def __new__(cls, client_name):
+		if cls.instance is None:
+			cls.instance = Carla.instance = super().__new__(cls)
+		return cls.instance
+
+	@classmethod
+	def delete(cls):
+		cls.instance.engine_close()
+		cls.instance = Carla.instance = None
+
+	def __init__(self, client_name):
 		self.path_binaries = '/usr/local/lib/carla'
 		self.path_resources = '/usr/local/share/carla'
 		if not os.path.exists(self.path_binaries):
@@ -326,6 +337,9 @@ class _SimpleCarla(CarlaHostDLL):
 		self._connections		= {}	# PatchbayConnection, indexed on Carla -generated "connection_id"
 		self._plugin_by_uuid	= {}	# Plugin, indexed on "uuid", used for identifying plugin during instantiation
 
+	# -------------------------------------------------------------------
+	# Save state (pathcbay connections)
+
 	def encode_saved_state(self):
 		"""
 		Return an object comprised of only basic data types for serialization as JSON
@@ -333,7 +347,7 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		return [ conn.encode_saved_state() for conn in self._connections.values() ]
 
-	# --------------------------
+	# -------------------------------------------------------------------
 	# Engine control / idle loop
 
 	def engine_init(self, driver_name, client_name):
@@ -380,7 +394,7 @@ class _SimpleCarla(CarlaHostDLL):
 		self.set_engine_about_to_close()
 		return super().engine_close()
 
-	# ----------------
+	# -------------------------------------------------------------------
 	# Engine functions
 
 	def is_engine_running(self):
@@ -502,7 +516,7 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		return float(self.lib.carla_get_sample_rate(self.handle))
 
-	# --------------------------
+	# -------------------------------------------------------------------
 	# Load / save file functions
 
 	@polite_function
@@ -537,7 +551,7 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		self.lib.carla_clear_project_filename(self.handle)
 
-	# -----------------------------
+	# -------------------------------------------------------------------
 	# Patchbay connection functions
 
 	@polite_function
@@ -578,7 +592,7 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		return bool(self.lib.carla_patchbay_refresh(self.handle, external))
 
-	# -------------------
+	# -------------------------------------------------------------------
 	# Transport functions
 
 	@polite_function
@@ -621,7 +635,7 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		return structToDict(self.lib.carla_get_transport_info(self.handle).contents)
 
-	# ------------------------------------
+	# -------------------------------------------------------------------
 	# Plugin add / remove / save / restore
 
 	def get_max_plugin_number(self):
@@ -740,7 +754,7 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		return bool(self.lib.carla_export_plugin_lv2(self.handle, plugin_id, lv2_path.encode("utf-8")))
 
-	# ------------------
+	# -------------------------------------------------------------------
 	# Plugin information
 
 	def get_plugin_info(self, plugin_id):
@@ -786,7 +800,7 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		return structToDict(self.lib.carla_get_parameter_count_info(self.handle, plugin_id).contents)
 
-	# --------------
+	# -------------------------------------------------------------------
 	# Plugin options
 
 	@polite_function
@@ -817,7 +831,7 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		self.lib.carla_set_option(self.handle, plugin_id, option, state)
 
-	# -------------
+	# -------------------------------------------------------------------
 	# Plugin values
 
 	@polite_function
@@ -885,7 +899,7 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		return float(self.lib.carla_get_output_peak_value(self.handle, plugin_id, left_value))
 
-	# -------------------------------------
+	# -------------------------------------------------------------------
 	# Plugin parameter information / values
 
 	def get_parameter_info(self, plugin_id, parameter_id):
@@ -982,7 +996,7 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		self.lib.carla_randomize_parameters(self.handle, plugin_id)
 
-	# --------------------------
+	# -------------------------------------------------------------------
 	# Plugin custom / chunk data
 
 	def get_custom_data_count(self, plugin_id):
@@ -1048,7 +1062,7 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		self.lib.carla_prepare_for_save(self.handle, plugin_id)
 
-	# ----------------------
+	# -------------------------------------------------------------------
 	# Program functions
 
 	def get_program_count(self, plugin_id):
@@ -1075,7 +1089,7 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		return charPtrToString(self.lib.carla_get_program_name(self.handle, plugin_id, program_id))
 
-	# ----------------------
+	# -------------------------------------------------------------------
 	# MIDI program functions
 
 	def get_midi_program_count(self, plugin_id):
@@ -1119,7 +1133,7 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		self.lib.carla_set_midi_program(self.handle, plugin_id, midi_program_id)
 
-	# ---------------
+	# -------------------------------------------------------------------
 	# Mapped controls
 
 	@polite_function
@@ -1164,7 +1178,7 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		self.lib.carla_set_parameter_touch(self.handle, plugin_id, parameter_id, touch)
 
-	# ----
+	# -------------------------------------------------------------------
 	# MIDI
 
 	@polite_function
@@ -1179,7 +1193,7 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		self.lib.carla_send_midi_note(self.handle, plugin_id, channel, note, velocity)
 
-	# -------------------
+	# -------------------------------------------------------------------
 	# UI / inline display
 
 	@polite_function
@@ -1245,7 +1259,7 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		self.lib.carla_nsm_ready(self.handle, opcode)
 
-	# ----------------------------------------
+	# -------------------------------------------------------------------
 	# Plugin-related engine callback functions
 
 	def cb_PluginAdded(self, plugin_id, plugin_type, carla_plugin_name):
@@ -1348,7 +1362,7 @@ class _SimpleCarla(CarlaHostDLL):
 	def cb_Debug(self, plugin_id, value1, value2, value3, valuef, valueStr):
 		self._plugins[plugin_id].debug(value1, value2, value3, valuef, value_str)
 
-	# ----------------------------------------
+	# -------------------------------------------------------------------
 	# Patchbay-related engine callback functions
 
 	def cb_PatchbayClientAdded(self, client_id, client_icon, plugin_id, client_name):
@@ -1493,7 +1507,7 @@ class _SimpleCarla(CarlaHostDLL):
 															# ---------------
 			): raise Exception("Failed to add plugin")
 
-	# -------------------
+	# -------------------------------------------------------------------
 	# Plugin access funcs
 
 	def plugins(self):
@@ -1526,7 +1540,7 @@ class _SimpleCarla(CarlaHostDLL):
 	def is_clear(self):
 		return self.plugin_count() == 0
 
-	# ---------------------------------------------
+	# -------------------------------------------------------------------
 	# Generator functions for listing clients/ports
 
 	def system_client_by_name(self, name):
@@ -1579,13 +1593,13 @@ class _SimpleCarla(CarlaHostDLL):
 			if client.may_sink and client.audio_in_count() > 0:
 				yield client
 
-	# ----------------------------------
+	# -------------------------------------------------------------------
 	# PatchbayConnection retrieval
 
 	def connection(self, connection_id):
 		return self._connections[connection_id]
 
-	# ----------------------------------
+	# -------------------------------------------------------------------
 	# Per port connect/disconnect
 
 	def connect(self, port1, port2):
@@ -1652,22 +1666,9 @@ class Carla(_SimpleCarla):
 	_cb_quit					= None
 	_cb_applicationerror		= None
 
-	# --------------------------
-	# Singleton instantiation
-
-	@classmethod
-	def instantiate(cls, client_name):
-		Carla.instance = cls(client_name)
-		return Carla.instance
-
-	@classmethod
-	def delete(cls):
-		Carla.instance.engine_close()
-		Carla.instance = None
-
-	# -----------------------------
+	# -------------------------------------------------------------------
 	# Setup callbacks
-	# -----------------------------
+	# -------------------------------------------------------------------
 
 	def on_ports_changed(self, callback):
 		self._cb_portschanged = callback
@@ -1711,9 +1712,9 @@ class Carla(_SimpleCarla):
 	def on_applicatione_rror(self, callback):
 		self._cb_applicationerror = callback
 
-	# -----------------------------
+	# -------------------------------------------------------------------
 	# Engine callback
-	# -----------------------------
+	# -------------------------------------------------------------------
 
 	def engine_callback(self, handle, action, plugin_id, value_1, value_2, value_3, float_val, string_val):
 
@@ -1901,10 +1902,10 @@ class Carla(_SimpleCarla):
 			if self._cb_applicationerror is not None:
 				self._cb_applicationerror(exc_type.__name__, str(e), fname, exc_tb.tb_lineno)
 
-	# -----------------------------
+	# -------------------------------------------------------------------
 	# Helper functions for callbacks
 	# which vary depending on Qt or Not-Qt
-	# -----------------------------
+	# -------------------------------------------------------------------
 
 	def _alert_ports_changed(self):
 		if self._cb_portschanged is not None:
@@ -1929,7 +1930,7 @@ class PatchbayClient:
 	def __init__(self):
 		self.ports = {}
 
-	# ----------------------------------------------------
+	# -------------------------------------------------------------------
 	# Methods which respond to patchbay changes
 
 	def client_renamed(self, new_client_name):
@@ -1958,7 +1959,7 @@ class PatchbayClient:
 		"""
 		pass
 
-	# ----------------------------------------------------
+	# -------------------------------------------------------------------
 	# Methods which initiate patchbay changes
 
 	def connect_outputs_to(self, other_client):
@@ -1985,7 +1986,7 @@ class PatchbayClient:
 		for port in self.output_ports():
 			port.disconnect_all()
 
-	# ----------------------------------------------------
+	# -------------------------------------------------------------------
 	# Port lists by classification:
 
 	def input_ports(self):
@@ -2012,7 +2013,7 @@ class PatchbayClient:
 	def cv_outs(self):
 		return [ port for port in self.ports.values() if port.is_cv and port.is_output ]
 
-	# ----------------------------------------------------
+	# -------------------------------------------------------------------
 	# Other port access funcs:
 
 	def first_midi_input_port(self):
@@ -2075,7 +2076,7 @@ class PatchbayPort:
 		self.group_id	= group_id
 		self.port_name	= port_name
 
-	# -------------------------------------------------------------
+	# -------------------------------------------------------------------
 	# Functions called from Patchbay in response to host callbacks:
 
 	def connection_added(self, connection):
@@ -2084,7 +2085,7 @@ class PatchbayPort:
 	def connection_removed(self, connection):
 		del self._connections[connection.connection_id]
 
-	# -------------------------------------------------------------
+	# -------------------------------------------------------------------
 	# Functions which are callable from outside
 
 	def connect_to(self, other_port):
@@ -2198,7 +2199,7 @@ class Plugin(PatchbayClient):
 	def on_removed(self, callback):
 		self._cb_removed = callback
 
-	# -------------------------
+	# -------------------------------------------------------------------
 	# Internal lifecycle events
 
 	def __init__(self, plugin_def=None, saved_state=None):
@@ -2353,7 +2354,7 @@ class Plugin(PatchbayClient):
 		if self._cb_ready is not None:
 			self._cb_ready()
 
-	# ----------------------------------------------------------
+	# -------------------------------------------------------------------
 	# Saved state (saving / loading) functions
 
 	def encode_saved_state(self):
@@ -2370,7 +2371,7 @@ class Plugin(PatchbayClient):
 			if not value is None:
 				self.parameters[int(key)].value = value
 
-	# ----------------------------------------------------------
+	# -------------------------------------------------------------------
 	# Misc functions
 
 	def audio_in_count(self):
@@ -2397,7 +2398,7 @@ class Plugin(PatchbayClient):
 	def idle_fast(self):
 		pass
 
-	# -----------------------------------------------------
+	# -------------------------------------------------------------------
 	# Functions called from Carla engine callbacks:
 
 	def debug(self, value1, value2, value3, valuef, value_str):
@@ -2513,7 +2514,7 @@ class Plugin(PatchbayClient):
 	def inline_display_redraw(self):
 		pass
 
-	# ----------------------------------------------------------
+	# -------------------------------------------------------------------
 	# Propery access functions which may trigger GUI changes
 	# or require setting a parameter in the engine:
 
@@ -2586,7 +2587,7 @@ class Plugin(PatchbayClient):
 	def ctrl_channel(self, value):
 		self._ctrl_channel = value
 
-	# -------------------------
+	# -------------------------------------------------------------------
 	# Functions called from GUI
 
 	def mute(self):

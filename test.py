@@ -15,7 +15,7 @@ class TestApp:
 	def __init__(self, meter_class='EBUMeter'):
 		super().__init__()
 		self.ready = False
-		Carla.instantiate(APPLICATION_NAME)
+		Carla(APPLICATION_NAME)
 		Carla.instance.on_engine_started(self.carla_started)
 		Carla.instance.on_engine_stopped(self.carla_stopped)
 		if not Carla.instance.engine_init("JACK", APPLICATION_NAME):

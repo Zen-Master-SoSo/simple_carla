@@ -92,19 +92,6 @@ class CarlaQt(Carla, QObject):
 		QObject.__init__(self)
 		Carla.__init__(self, client_name)
 
-	# --------------------------
-	# Singleton instantiation
-
-	@classmethod
-	def instantiate(cls, client_name):
-		Carla.instance = CarlaQt.instance = cls(client_name)
-		return CarlaQt.instance
-
-	@classmethod
-	def delete(cls):
-		CarlaQt.instance.engine_close()
-		Carla.instance = CarlaQt.instance = None
-
 	# -----------------------------
 	# Engine callback
 	# -----------------------------
