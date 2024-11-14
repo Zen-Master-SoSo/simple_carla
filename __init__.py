@@ -5,11 +5,10 @@
 
 import os, sys, threading, time, logging, traceback, qt_extras.autofit
 from numpy import zeros as np_zeros
-from ctypes import c_void_p, cast
+from ctypes import byref, cast, c_char_p, c_void_p, POINTER
 from functools import wraps
 from collections import defaultdict
 from uuid import uuid4 as uuid
-from qt_extras import ShutUpQT
 from pprint import pprint
 
 # Carla imports
@@ -46,6 +45,7 @@ from carla.carla_backend import (
 
 	CarlaHostDLL,
 	charPtrToString,
+	c_uintptr,
 	charPtrPtrToStringList,
 	structToDict,
 	EngineCallbackFunc,
@@ -207,8 +207,11 @@ from carla.carla_backend import (
 	PATCHBAY_PORT_TYPE_AUDIO,
 	PATCHBAY_PORT_TYPE_CV,
 	PATCHBAY_PORT_TYPE_MIDI,
-	PATCHBAY_PORT_TYPE_OSC
+	PATCHBAY_PORT_TYPE_OSC,
 
+	# File open dialog flags
+	FILE_CALLBACK_OPEN,
+	FILE_CALLBACK_SAVE
 )
 
 
@@ -234,36 +237,13 @@ def polite_function(func):
 
 
 # -------------------------------------------------------------------
-# Global "autoload_file" func specially crafted for liquidsfz
-
-__autoload_plugin = None
-
-def autoload_plugin():
-	return __autoload_plugin
-
-def trigger_autoload(plugin):
-	"""
-	liquidsfz does not have an input file parameter, but instead, requests the host
-	to display an open file dialog from which the user may select an SFZ file to
-	load. This function triggers the plugin's host gui display which will call
-	MainWindow.file_callback(). When there is a plugin to autoload on deck,
-	MainWindow.file_callback() will return the "autoload_filename" property of the
-	plugin, instead of showing the file open dialog and returning the result.
-	"""
-	global __autoload_plugin
-	__autoload_plugin = plugin
-	Carla.instance.show_custom_ui(plugin.plugin_id, True)
-	plugin.auto_load_complete()
-	__autoload_plugin = None
-
-
-
-# -------------------------------------------------------------------
 # Carla host wrapper
 
 class _SimpleCarla(CarlaHostDLL):
 
-	idle_interval				= 1 / 50
+	idle_interval		= 1 / 50
+	__autoload_plugin	= None
+	__autoload_filename	= None
 
 	def __init__(self, client_name):
 		if not Carla.instance is None:
@@ -283,6 +263,8 @@ class _SimpleCarla(CarlaHostDLL):
 		self._run_idle_loop = False
 		self._engine_callback = EngineCallbackFunc(self.engine_callback)
 		self.lib.carla_set_engine_callback(self.handle, self._engine_callback, None)
+		self._file_callback = FileCallbackFunc(self.file_callback)
+		self.lib.carla_set_file_callback(self.handle, self._file_callback, None)
 
 		self.nsmOK = self.nsm_init(os.getpid(), client_name)
 		self.audioDriverForced = "JACK"
@@ -368,17 +350,11 @@ class _SimpleCarla(CarlaHostDLL):
 			return True
 		return False
 
-	def set_file_callback(self, func):
-		"""
-		Set the file callback function.
-		func:		Callback function
-		ptr:		Callback pointer
-		"""
-		self._file_callback = FileCallbackFunc(func)
-		self.lib.carla_set_file_callback(self.handle, self._file_callback, None)
+	def set_ui_parent(self, window):
+		self._file_callback_parent = window
 
 	def engine_idle(self):
-		raise NotImplemented
+		raise NotImplemented()
 
 	def __engine_idle(self):
 		global _engine_exclusive
@@ -1529,7 +1505,7 @@ class _SimpleCarla(CarlaHostDLL):
 	def plugin(self, plugin_id):
 		if plugin_id in self._plugins:
 			return  self._plugins[plugin_id]
-		raise IndexError
+		raise IndexError()
 
 	def plugin_from_uuid(self, uuid):
 		return self._plugin_by_uuid[uuid] if uuid in self._plugin_by_uuid else None
@@ -1537,7 +1513,7 @@ class _SimpleCarla(CarlaHostDLL):
 	def client(self, client_id):
 		if client_id in self._clients:
 			return  self._clients[client_id]
-		raise IndexError
+		raise IndexError()
 
 	def client_count(self):
 		return len(self._clients)
@@ -1615,6 +1591,46 @@ class _SimpleCarla(CarlaHostDLL):
 	def connect(self, port1, port2):
 		if not self.patchbay_connect(True, port1.client_id, port1.port_id, port2.client_id, port2.port_id):
 			logging.error(f'Patchbay connect FAILED! {port1} -> {port2}')
+
+	# -------------------------------------------------------------------
+	# Plugin filename autoload trick
+
+	def autoload(self, plugin, filename, callback = None):
+		"""
+		liquidsfz does not have an input file parameter, but instead, requests the host to display an open file dialog from which the user may select an SFZ file to load. This function triggers the plugin's host gui display which will call __file_callback(). When there is a plugin to autoload on deck, __file_callback() will return the "autoload_filename" property of the plugin, instead of showing the file open dialog and returning the result.
+
+		"""
+		if self.__autoload_plugin is not None:
+			raise Exception("Cannot set autoload plugin as it is already used by " + self.__autoload_plugin)
+		self.__autoload_plugin = plugin
+		self.__autoload_filename = filename
+		logging.debug(filename)
+		self.show_custom_ui(plugin.plugin_id, True)
+		self.__autoload_plugin = None
+		self.__autoload_filename = None
+		if callable(callback):
+			callback()
+
+	def file_callback(self, ptr, action, is_dir, title, filter):
+		if self.__autoload_plugin is None:
+			if self._file_callback_parent is None:
+				raise Exception("Cannot open file dialog without parent window (see Carla.set_ui_parent)")
+			title  = charPtrToString(title)
+			filter = charPtrToString(filter)
+			if action == FILE_CALLBACK_OPEN:
+				ret, ok = QFileDialog.getOpenFileName(self._file_callback_parent, title, "", filter)
+			elif action == FILE_CALLBACK_SAVE:
+				ret, ok = QFileDialog.getSaveFileName(self._file_callback_parent, title, "", filter, QFileDialog.ShowDirsOnly if is_dir else 0x0)
+			else:
+				return None
+		else:
+			ret = self.__autoload_filename
+		logging.debug(ret)
+		if ret:
+			return_file = c_char_p(ret.encode("utf-8"))
+			retval = cast(byref(return_file), POINTER(c_uintptr))
+			return retval.contents.value
+
 
 
 class Carla(_SimpleCarla):
@@ -2535,7 +2551,7 @@ class Plugin(PatchbayClient):
 	@balance_left.setter
 	def balance_left(self, value):
 		if value < -1.0 or value > 1.0:
-			raise ValueError
+			raise ValueError()
 		self._balance_left = value
 
 	@property
@@ -2545,7 +2561,7 @@ class Plugin(PatchbayClient):
 	@balance_right.setter
 	def balance_right(self, value):
 		if value < -1.0 or value > 1.0:
-			raise ValueError
+			raise ValueError()
 		self._balance_right = value
 
 	@property
@@ -2559,7 +2575,7 @@ class Plugin(PatchbayClient):
 	@panning.setter
 	def panning(self, value):
 		if value < -1.0 or value > 1.0:
-			raise ValueError
+			raise ValueError()
 		self._panning = value
 
 	@property
