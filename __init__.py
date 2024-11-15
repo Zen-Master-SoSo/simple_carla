@@ -11,11 +11,25 @@ from collections import defaultdict
 from uuid import uuid4 as uuid
 from pprint import pprint
 
-# Carla imports
-from carla.utils import QSafeSettings
-from carla.carla_utils import getPluginTypeAsString
+if os.path.exists('/usr/local/lib/carla'):
+	PATH_BINARIES = '/usr/local/lib/carla'
+elif os.path.exists('/usr/lib/carla'):
+	PATH_BINARIES = '/usr/lib/carla'
+else:
+	raise FileNotFoundError(f"Carla binaries not found")
+if os.path.exists('/usr/local/share/carla'):
+	PATH_RESOURCES = '/usr/share/carla'
+elif os.path.exists('/usr/share/carla'):
+	PATH_RESOURCES = '/usr/share/carla'
+else:
+	raise FileNotFoundError(f"Carla resources not found")
 
-from carla.carla_shared import (
+sys.path.append(PATH_RESOURCES)
+
+from carla_shared import QSafeSettings
+from carla_utils import getPluginTypeAsString
+
+from carla_shared import (
 	DLL_EXTENSION,
 	splitter,
 
@@ -26,13 +40,9 @@ from carla.carla_shared import (
 	CARLA_KEY_PATHS_LV2,
 	CARLA_KEY_PATHS_VST2,
 	CARLA_KEY_PATHS_VST3,
-	CARLA_KEY_PATHS_CLAP,
 	CARLA_KEY_PATHS_SF2,
 	CARLA_KEY_PATHS_SFZ,
-	CARLA_KEY_PATHS_JSFX,
-	CARLA_DEFAULT_CLAP_PATH,
 	CARLA_DEFAULT_DSSI_PATH,
-	CARLA_DEFAULT_JSFX_PATH,
 	CARLA_DEFAULT_LADSPA_PATH,
 	CARLA_DEFAULT_LV2_PATH,
 	CARLA_DEFAULT_SF2_PATH,
@@ -41,7 +51,7 @@ from carla.carla_shared import (
 	CARLA_DEFAULT_VST3_PATH
 )
 
-from carla.carla_backend import (
+from carla_backend import (
 
 	CarlaHostDLL,
 	charPtrToString,
@@ -130,7 +140,6 @@ from carla.carla_backend import (
 
 	# Plugin types:
 	PLUGIN_AU,
-	PLUGIN_CLAP,
 	PLUGIN_DLS,
 	PLUGIN_DSSI,
 	PLUGIN_GIG,
@@ -260,16 +269,9 @@ class _SimpleCarla(CarlaHostDLL):
 		cls.instance = Carla.instance = None
 
 	def __init__(self, client_name):
-		self.path_binaries = '/usr/local/lib/carla'
-		self.path_resources = '/usr/local/share/carla'
-		if not os.path.exists(self.path_binaries):
-			raise FileNotFoundError(f"Carla binaries ({self.path_binaries}) not found")
-		if not os.path.exists(self.path_resources):
-			raise FileNotFoundError(f"Carla resources ({self.path_resources}) not found")
-
 		self._init_dicts()
 		libname = "libcarla_%s2.%s" % ("standalone", DLL_EXTENSION)
-		CarlaHostDLL.__init__(self, os.path.join(self.path_binaries, libname), False)
+		CarlaHostDLL.__init__(self, os.path.join(PATH_BINARIES, libname), False)
 
 		self._run_idle_loop = False
 		self._engine_callback = EngineCallbackFunc(self.engine_callback)
@@ -293,8 +295,8 @@ class _SimpleCarla(CarlaHostDLL):
 		self.processModeForced = True
 		self.showLogs = False
 
-		self.set_engine_option(ENGINE_OPTION_PATH_BINARIES, 0, self.path_binaries)
-		self.set_engine_option(ENGINE_OPTION_PATH_RESOURCES, 0, self.path_resources)
+		self.set_engine_option(ENGINE_OPTION_PATH_BINARIES, 0, PATH_BINARIES)
+		self.set_engine_option(ENGINE_OPTION_PATH_RESOURCES, 0, PATH_RESOURCES)
 		self.set_engine_option(ENGINE_OPTION_AUDIO_DRIVER, 0, self.audioDriverForced)
 		self.set_engine_option(ENGINE_OPTION_FORCE_STEREO, self.forceStereo, "")
 		self.set_engine_option(ENGINE_OPTION_RESET_XRUNS, self.resetXruns, "")
@@ -325,10 +327,6 @@ class _SimpleCarla(CarlaHostDLL):
 			splitter.join(carla_settings.value(CARLA_KEY_PATHS_SF2, CARLA_DEFAULT_SF2_PATH, list)))
 		self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_SFZ,
 			splitter.join(carla_settings.value(CARLA_KEY_PATHS_SFZ, CARLA_DEFAULT_SFZ_PATH, list)))
-		self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_JSFX,
-			splitter.join(carla_settings.value(CARLA_KEY_PATHS_JSFX, CARLA_DEFAULT_JSFX_PATH, list)))
-		self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_CLAP,
-			splitter.join(carla_settings.value(CARLA_KEY_PATHS_CLAP, CARLA_DEFAULT_CLAP_PATH, list)))
 
 	def _init_dicts(self):
 		self._plugins			= {}	# Plugin, indexed on Carla -generated "plugin_id"

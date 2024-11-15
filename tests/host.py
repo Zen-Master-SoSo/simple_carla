@@ -46,9 +46,15 @@ class TestApp:
 		Blocks until sig_ready received from MeteringWorker.
 		(Replaces this class' sig_ready)
 		"""
+		watchdog = 0
 		while not self.ready:
-			logging.debug('TestApp waiting for meter_ready_event ...')
-			sleep(0.4)
+			watchdog += 1
+			if watchdog > 3:
+				logging.debug('Tired of waiting')
+				break
+			else:
+				logging.debug('TestApp waiting for meter_ready_event ...')
+				sleep(0.4)
 
 	def __enter__(self):
 		return self
