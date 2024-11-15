@@ -9,9 +9,7 @@ from qt_extras import ShutUpQT
 from PyQt5 import uic
 from PyQt5.QtCore import Qt, QObject, pyqtSignal, pyqtSlot, QTimer, QMetaObject
 from PyQt5.QtWidgets import QAction, QFrame
-
 from simple_carla import Carla, Plugin
-
 
 from carla.carla_backend import (
 
@@ -68,6 +66,8 @@ from carla.carla_backend import (
 	ENGINE_CALLBACK_PATCHBAY_CLIENT_POSITION_CHANGED,
 
 )
+from carla.carla_frontend import CarlaFrontendLib
+from carla.carla_shared import DLL_EXTENSION
 
 
 class CarlaQt(Carla, QObject):
@@ -377,7 +377,6 @@ class QtWidgetPlugin(Plugin, QFrame):
 
 	def inline_display_redraw(self):
 		retval = CarlaQt.instance.render_inline_display(self.plugin_id, self.fixed_width, self.fixed_height)
-		pprint(retval.keys())
 
 	@pyqtSlot(bool)
 	def show_plugin_dialog(self, state):
@@ -414,6 +413,39 @@ class QtWidgetPlugin(Plugin, QFrame):
 	@pyqtSlot()
 	def b_wet_clicked(self):
 		self.dry_wet = 0
+
+
+
+class CarlaPluginDialog():
+	"""
+	Plugin selection dialog from Carla felib
+	(handles all supported plugins)
+	"""
+	_instance = None
+
+	def __new__(cls, parent):
+		if cls._instance is None:
+			cls._instance = super().__new__(cls)
+		return cls._instance
+
+	def __init__(self, parent):
+		felib_path = '/usr/local/lib/carla/libcarla_frontend.' + DLL_EXTENSION
+		self._carla_felib = CarlaFrontendLib(felib_path)
+		self._plugin_list_dialog = self._carla_felib.createPluginListDialog(parent, {
+			'showPluginBridges': False,
+			'showWineBridges': False,
+			'useSystemIcons': False,
+			'wineAutoPrefix': '',
+			'wineExecutable': '',
+			'wineFallbackPrefix': ''
+		})
+
+	def exec_dialog(self):
+		"""
+		Displays the plugin dialog and returns a dict containing the values essential
+		for loading a plugin.
+		"""
+		return self._carla_felib.execPluginListDialog(self._plugin_list_dialog)
 
 
 
