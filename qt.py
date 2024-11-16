@@ -293,6 +293,20 @@ class QtPlugin(Plugin, QObject):
 		QObject.__init__(self)
 		Plugin.__init__(self, plugin_def, saved_state)
 
+	def ready(self):
+		"""
+		Called after post_embed_init() and all ports ready
+		"""
+		logging.debug(f"{self} ready")
+		self.sig_Ready.emit(self.plugin_id)
+
+	def got_removed(self):
+		if self.original_plugin_name in self.moniker_counts:
+			self.moniker_counts[self.original_plugin_name] -= 1
+		else:
+			logging.warning(f"{self} original_plugin_name not in moniker_counts")
+		self.sig_Removed.emit(self.plugin_id)
+
 
 class QtWidgetPlugin(Plugin, QFrame):
 

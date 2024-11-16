@@ -17,8 +17,9 @@ elif os.path.exists('/usr/lib/carla'):
 	PATH_BINARIES = '/usr/lib/carla'
 else:
 	raise FileNotFoundError(f"Carla binaries not found")
+
 if os.path.exists('/usr/local/share/carla'):
-	PATH_RESOURCES = '/usr/share/carla'
+	PATH_RESOURCES = '/usr/local/share/carla'
 elif os.path.exists('/usr/share/carla'):
 	PATH_RESOURCES = '/usr/share/carla'
 else:
@@ -26,15 +27,14 @@ else:
 
 sys.path.append(PATH_RESOURCES)
 
-from carla_shared import QSafeSettings
+from carla.utils.qsafesettings import QSafeSettings
 from carla_utils import getPluginTypeAsString
 
 from carla_shared import (
+
 	DLL_EXTENSION,
 	splitter,
 
-	CARLA_KEY_PATHS_AUDIO,
-	CARLA_KEY_PATHS_MIDI,
 	CARLA_KEY_PATHS_LADSPA,
 	CARLA_KEY_PATHS_DSSI,
 	CARLA_KEY_PATHS_LV2,
@@ -139,13 +139,8 @@ from carla_backend import (
 	ENGINE_PROCESS_MODE_PATCHBAY,
 
 	# Plugin types:
-	PLUGIN_AU,
-	PLUGIN_DLS,
 	PLUGIN_DSSI,
-	PLUGIN_GIG,
-	PLUGIN_INTERNAL,
 	PLUGIN_JACK,
-	PLUGIN_JSFX,
 	PLUGIN_LADSPA,
 	PLUGIN_LV2,
 	PLUGIN_NONE,
@@ -321,6 +316,8 @@ class _SimpleCarla(CarlaHostDLL):
 			splitter.join(carla_settings.value(CARLA_KEY_PATHS_LV2, CARLA_DEFAULT_LV2_PATH, list)))
 		self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_VST2,
 			splitter.join(carla_settings.value(CARLA_KEY_PATHS_LV2, CARLA_DEFAULT_LV2_PATH, list)))
+		self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_VST2,
+			splitter.join(carla_settings.value(CARLA_KEY_PATHS_VST2, CARLA_DEFAULT_VST2_PATH, list)))
 		self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_VST3,
 			splitter.join(carla_settings.value(CARLA_KEY_PATHS_VST3, CARLA_DEFAULT_VST3_PATH, list)))
 		self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_SF2,
@@ -1272,6 +1269,7 @@ class _SimpleCarla(CarlaHostDLL):
 				plugin_id, carla_plugin_name, str(self._plugins[plugin_id])))
 		if carla_plugin_name in self._plugin_by_uuid:
 			self._plugins[plugin_id] = self._plugin_by_uuid[carla_plugin_name]
+			logging.debug(f"Plugin added: {self._plugins[plugin_id]}")
 			self._plugins[plugin_id].post_embed_init(plugin_id) 		# Set up parameters, etc.
 		else:
 			logging.warning('cb_PluginAdded: Plugin "%s" not found in _plugin_by_uuid when added' % carla_plugin_name)
@@ -1460,6 +1458,7 @@ class _SimpleCarla(CarlaHostDLL):
 		out_port = out_client.ports[port_out_id]
 		in_port = in_client.ports[port_in_id]
 		connection = PatchbayConnection(connection_id, out_port, in_port)
+		logging.debug(f"Added {connection}")
 		self._connections[connection_id] = connection
 		out_port.connection_added(connection)
 		in_port.connection_added(connection)
@@ -2184,7 +2183,7 @@ class Plugin(PatchbayClient):
 	moniker_counts		= defaultdict(int)	# For naming multiple plugins with the same original_plugin_name
 
 	_cb_ready			= None
-	_cb_removed		= None
+	_cb_removed			= None
 
 	_save_state_keys	= [	'uuid', 'moniker',
 							'active', 'volume', 'dry_wet', 'panning', 'balance_left', 'balance_right',
