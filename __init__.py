@@ -26,6 +26,7 @@ else:
 	raise FileNotFoundError(f"Carla resources not found")
 
 sys.path.append(PATH_RESOURCES)
+sys.path.append(os.path.dirname(PATH_RESOURCES))
 
 from carla.utils.qsafesettings import QSafeSettings
 from carla_utils import getPluginTypeAsString
