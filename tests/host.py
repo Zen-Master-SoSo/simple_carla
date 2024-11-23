@@ -6,7 +6,6 @@ import logging
 from simple_carla import Carla, Plugin
 from time import sleep
 
-
 APPLICATION_NAME = 'simple_carla'
 
 

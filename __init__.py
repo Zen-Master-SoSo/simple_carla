@@ -17,18 +17,20 @@ elif os.path.exists('/usr/lib/carla'):
 	PATH_BINARIES = '/usr/lib/carla'
 else:
 	raise FileNotFoundError(f"Carla binaries not found")
-
 if os.path.exists('/usr/local/share/carla'):
 	PATH_RESOURCES = '/usr/local/share/carla'
 elif os.path.exists('/usr/share/carla'):
 	PATH_RESOURCES = '/usr/share/carla'
 else:
 	raise FileNotFoundError(f"Carla resources not found")
-
 sys.path.append(PATH_RESOURCES)
-sys.path.append(os.path.dirname(PATH_RESOURCES))
-
-from carla.utils.qsafesettings import QSafeSettings
+print("sys.path appended %s" % PATH_RESOURCES)
+try:
+	from carla_shared import QSafeSettings
+except ImportError:
+	sys.path.append(os.path.dirname(PATH_RESOURCES))
+	print("sys.path appended %s" % os.path.dirname(PATH_RESOURCES))
+	from carla.utils.qsafesettings import QSafeSettings
 from carla_utils import getPluginTypeAsString
 
 from carla_shared import (
