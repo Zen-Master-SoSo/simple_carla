@@ -3,16 +3,12 @@
 #  Copyright 2024 liyang <liyang@veronica>
 #
 import logging, traceback, os, sys
-from qt_extras import ShutUpQT
 
 # PyQt5 imports
-from PyQt5 import uic
-from PyQt5.QtCore import Qt, QObject, pyqtSignal, pyqtSlot, QTimer, QMetaObject
-from PyQt5.QtWidgets import QAction, QFrame
-from simple_carla import _SimpleCarla, Plugin, PATH_RESOURCES
-
-sys.path.append(PATH_RESOURCES)
-
+from PyQt5.QtCore import QObject, pyqtSignal
+from simple_carla import _SimpleCarla, Plugin, carla_paths
+binpath, respath = carla_paths()
+sys.path.append(respath)
 
 from carla_backend import (
 
@@ -69,8 +65,6 @@ from carla_backend import (
 	ENGINE_CALLBACK_PATCHBAY_CLIENT_POSITION_CHANGED,
 
 )
-from carla_frontend import CarlaFrontendLib
-from carla_shared import DLL_EXTENSION
 
 
 class CarlaQt(_SimpleCarla, QObject):
@@ -313,39 +307,6 @@ class QtPlugin(Plugin, QObject):
 		else:
 			logging.warning(f"{self} original_plugin_name not in moniker_counts")
 		self.sig_Removed.emit(self.plugin_id)
-
-
-
-class CarlaPluginDialog():
-	"""
-	Plugin selection dialog from Carla felib
-	(handles all supported plugins)
-	"""
-	_instance = None
-
-	def __new__(cls, parent):
-		if cls._instance is None:
-			cls._instance = super().__new__(cls)
-		return cls._instance
-
-	def __init__(self, parent):
-		felib_path = '/usr/local/lib/carla/libcarla_frontend.' + DLL_EXTENSION
-		self._carla_felib = CarlaFrontendLib(felib_path)
-		self._plugin_list_dialog = self._carla_felib.createPluginListDialog(parent, {
-			'showPluginBridges': False,
-			'showWineBridges': False,
-			'useSystemIcons': False,
-			'wineAutoPrefix': '',
-			'wineExecutable': '',
-			'wineFallbackPrefix': ''
-		})
-
-	def exec_dialog(self):
-		"""
-		Displays the plugin dialog and returns a dict containing the values essential
-		for loading a plugin.
-		"""
-		return self._carla_felib.execPluginListDialog(self._plugin_list_dialog)
 
 
 

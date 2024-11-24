@@ -11,26 +11,32 @@ from uuid import uuid4 as uuid
 from pprint import pprint
 from PyQt5.QtCore import QSettings
 
-if os.path.exists('/usr/local/lib/carla'):
-	PATH_BINARIES = '/usr/local/lib/carla'
-elif os.path.exists('/usr/lib/carla'):
-	PATH_BINARIES = '/usr/lib/carla'
-else:
-	raise FileNotFoundError(f"Carla binaries not found")
-if os.path.exists('/usr/local/share/carla'):
-	PATH_RESOURCES = '/usr/local/share/carla'
-elif os.path.exists('/usr/share/carla'):
-	PATH_RESOURCES = '/usr/share/carla'
-else:
-	raise FileNotFoundError(f"Carla resources not found")
+def carla_paths():
+	"""
+	System -independent path detection
+	returns carla_binaries_path, carla_resources_path
+	"""
+	if os.path.exists('/usr/local/lib/carla'):
+		carla_binaries_path = '/usr/local/lib/carla'
+	elif os.path.exists('/usr/lib/carla'):
+		carla_binaries_path = '/usr/lib/carla'
+	else:
+		raise FileNotFoundError(f"Carla binaries not found")
+	if os.path.exists('/usr/local/share/carla'):
+		carla_resources_path = '/usr/local/share/carla'
+	elif os.path.exists('/usr/share/carla'):
+		carla_resources_path = '/usr/share/carla'
+	else:
+		raise FileNotFoundError(f"Carla resources not found")
+	return carla_binaries_path, carla_resources_path
 
-sys.path.append(PATH_RESOURCES)
+binpath, respath = carla_paths()
+sys.path.append(respath)
 
 from carla_utils import getPluginTypeAsString
 
 from carla_shared import (
 
-	DLL_EXTENSION,
 	splitter,
 
 	CARLA_KEY_PATHS_LADSPA,
@@ -264,8 +270,8 @@ class _SimpleCarla(CarlaHostDLL):
 	def __init__(self, client_name):
 		self.client_name = client_name
 		self._init_dicts()
-		libname = "libcarla_%s2.%s" % ("standalone", DLL_EXTENSION)
-		CarlaHostDLL.__init__(self, os.path.join(PATH_BINARIES, libname), False)
+		libname = "libcarla_standalone2.so"
+		CarlaHostDLL.__init__(self, os.path.join(binpath, libname), False)
 
 		self._run_idle_loop = False
 		self._engine_callback = EngineCallbackFunc(self.engine_callback)
@@ -289,8 +295,8 @@ class _SimpleCarla(CarlaHostDLL):
 		self.processModeForced = True
 		self.showLogs = False
 
-		self.set_engine_option(ENGINE_OPTION_PATH_BINARIES, 0, PATH_BINARIES)
-		self.set_engine_option(ENGINE_OPTION_PATH_RESOURCES, 0, PATH_RESOURCES)
+		self.set_engine_option(ENGINE_OPTION_PATH_BINARIES, 0, binpath)
+		self.set_engine_option(ENGINE_OPTION_PATH_RESOURCES, 0, respath)
 		self.set_engine_option(ENGINE_OPTION_AUDIO_DRIVER, 0, self.audioDriverForced)
 		self.set_engine_option(ENGINE_OPTION_FORCE_STEREO, self.forceStereo, "")
 		self.set_engine_option(ENGINE_OPTION_RESET_XRUNS, self.resetXruns, "")
