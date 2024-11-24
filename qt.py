@@ -9,9 +9,12 @@ from qt_extras import ShutUpQT
 from PyQt5 import uic
 from PyQt5.QtCore import Qt, QObject, pyqtSignal, pyqtSlot, QTimer, QMetaObject
 from PyQt5.QtWidgets import QAction, QFrame
-from simple_carla import Carla, Plugin
+from simple_carla import Carla, Plugin, PATH_RESOURCES
 
-from carla.carla_backend import (
+sys.path.append(PATH_RESOURCES)
+
+
+from carla_backend import (
 
 	charPtrToString,
 
@@ -66,8 +69,8 @@ from carla.carla_backend import (
 	ENGINE_CALLBACK_PATCHBAY_CLIENT_POSITION_CHANGED,
 
 )
-from carla.carla_frontend import CarlaFrontendLib
-from carla.carla_shared import DLL_EXTENSION
+from carla_frontend import CarlaFrontendLib
+from carla_shared import DLL_EXTENSION
 
 
 class CarlaQt(Carla, QObject):

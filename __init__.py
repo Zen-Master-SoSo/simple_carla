@@ -2,7 +2,6 @@
 #
 #  Copyright 2024 liyang <liyang@veronica>
 #
-
 import os, sys, threading, time, logging, traceback, qt_extras.autofit
 from numpy import zeros as np_zeros
 from ctypes import byref, cast, c_char_p, c_void_p, POINTER
@@ -10,6 +9,7 @@ from functools import wraps
 from collections import defaultdict
 from uuid import uuid4 as uuid
 from pprint import pprint
+from PyQt5.QtCore import QSettings
 
 if os.path.exists('/usr/local/lib/carla'):
 	PATH_BINARIES = '/usr/local/lib/carla'
@@ -23,14 +23,9 @@ elif os.path.exists('/usr/share/carla'):
 	PATH_RESOURCES = '/usr/share/carla'
 else:
 	raise FileNotFoundError(f"Carla resources not found")
+
 sys.path.append(PATH_RESOURCES)
-print("sys.path appended %s" % PATH_RESOURCES)
-try:
-	from carla_shared import QSafeSettings
-except ImportError:
-	sys.path.append(os.path.dirname(PATH_RESOURCES))
-	print("sys.path appended %s" % os.path.dirname(PATH_RESOURCES))
-	from carla.utils.qsafesettings import QSafeSettings
+
 from carla_utils import getPluginTypeAsString
 
 from carla_shared import (
@@ -310,7 +305,7 @@ class _SimpleCarla(CarlaHostDLL):
 		self.set_engine_option(ENGINE_OPTION_CLIENT_NAME_PREFIX, 0, client_name)
 
 		# Use paths set in Carla application
-		carla_settings = QSafeSettings("falkTX", "Carla2")
+		carla_settings = QSettings("falkTX", "Carla2")
 		self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_LADSPA,
 			splitter.join(carla_settings.value(CARLA_KEY_PATHS_LADSPA, CARLA_DEFAULT_LADSPA_PATH, list)))
 		self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_DSSI,
