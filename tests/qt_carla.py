@@ -7,12 +7,14 @@ from simple_carla.qt import CarlaQt, QtPlugin
 from time import sleep
 from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtCore import QObject
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QMainWindow
 
 
 APPLICATION_NAME = 'qt_carla'
 
 
-class TestApp(QObject):
+class TestApp(QMainWindow):
 
 	def __init__(self, meter_class='EBUMeter'):
 		super().__init__()
@@ -41,31 +43,12 @@ class TestApp(QObject):
 	@pyqtSlot(int)
 	def meter_ready(self, plugin_id):
 		logging.debug('Received sig_Ready ')
-		self.ready = True
+		self.close()
 
-	def wait_ready(self):
-		"""
-		Blocks until sig_Ready received from EBUMeter.
-		"""
-		watchdog = 0
-		while not self.ready:
-			watchdog += 1
-			if watchdog > 5:
-				logging.debug('Tired of waiting')
-				break
-			else:
-				logging.debug('TestApp waiting for meter_ready_event ...')
-				sleep(0.4)
-
-	def __enter__(self):
-		return self
-
-	def __exit__(self, exc_type, exc_value, traceback):
-		self.shutdown()
-
-	def shutdown(self):
-		logging.debug('TestApp.shutdown');
+	def closeEvent(self, event):
+		logging.debug('Closing');
 		CarlaQt.instance.delete()
+		event.accept()
 
 
 
@@ -98,9 +81,11 @@ if __name__ == "__main__":
 		level = logging.DEBUG,
 		format = "[%(filename)24s:%(lineno)-4d] %(message)s"
 	)
-	with TestApp() as tester:
-		tester.wait_ready()
+	app = QApplication([])
+	main_window = TestApp()
+	main_window.show()
 	logging.debug('Done')
+	app.exec()
 
 
 

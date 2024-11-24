@@ -293,8 +293,8 @@ class QtPlugin(Plugin, QObject):
 		plugin.add_to_carla()
 	"""
 
-	sig_Ready					= pyqtSignal(int)
-	sig_Removed 				= pyqtSignal(int)
+	sig_Ready		= pyqtSignal(int)
+	sig_Removed 	= pyqtSignal(int)
 
 	def __init__(self, plugin_def=None, saved_state=None):
 		QObject.__init__(self)

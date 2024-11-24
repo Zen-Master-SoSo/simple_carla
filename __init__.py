@@ -1613,7 +1613,7 @@ class _SimpleCarla(CarlaHostDLL):
 			raise Exception("Cannot set autoload plugin as it is already used by " + self.__autoload_plugin)
 		self.__autoload_plugin = plugin
 		self.__autoload_filename = filename
-		logging.debug(filename)
+		logging.debug(f"Autoloading {filename}")
 		self.show_custom_ui(plugin.plugin_id, True)
 		self.__autoload_plugin = None
 		self.__autoload_filename = None
@@ -1634,7 +1634,6 @@ class _SimpleCarla(CarlaHostDLL):
 				return None
 		else:
 			ret = self.__autoload_filename
-		logging.debug(ret)
 		if ret:
 			return_file = c_char_p(ret.encode("utf-8"))
 			retval = cast(byref(return_file), POINTER(c_uintptr))
