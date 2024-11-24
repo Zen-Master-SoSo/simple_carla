@@ -262,6 +262,7 @@ class _SimpleCarla(CarlaHostDLL):
 		cls.instance = Carla.instance = None
 
 	def __init__(self, client_name):
+		self.client_name = client_name
 		self._init_dicts()
 		libname = "libcarla_%s2.%s" % ("standalone", DLL_EXTENSION)
 		CarlaHostDLL.__init__(self, os.path.join(PATH_BINARIES, libname), False)
@@ -272,7 +273,7 @@ class _SimpleCarla(CarlaHostDLL):
 		self._file_callback = FileCallbackFunc(self.file_callback)
 		self.lib.carla_set_file_callback(self.handle, self._file_callback, None)
 
-		self.nsmOK = self.nsm_init(os.getpid(), client_name)
+		self.nsmOK = self.nsm_init(os.getpid(), self.client_name)
 		self.audioDriverForced = "JACK"
 		self.forceStereo = False
 		self.resetXruns = True
@@ -302,7 +303,7 @@ class _SimpleCarla(CarlaHostDLL):
 		self.set_engine_option(ENGINE_OPTION_UIS_ALWAYS_ON_TOP, self.uisAlwaysOnTop, "")
 		self.set_engine_option(ENGINE_OPTION_PROCESS_MODE, self.processMode, "")
 		self.set_engine_option(ENGINE_OPTION_DEBUG_CONSOLE_OUTPUT, self.showLogs, "")
-		self.set_engine_option(ENGINE_OPTION_CLIENT_NAME_PREFIX, 0, client_name)
+		self.set_engine_option(ENGINE_OPTION_CLIENT_NAME_PREFIX, 0, self.client_name)
 
 		# Use paths set in Carla application
 		carla_settings = QSettings("falkTX", "Carla2")
@@ -343,15 +344,14 @@ class _SimpleCarla(CarlaHostDLL):
 	# -------------------------------------------------------------------
 	# Engine control / idle loop
 
-	def engine_init(self, driver_name, client_name):
+	def engine_init(self, driver_name):
 		"""
 		Initialize the engine.
 		Make sure to call carla_engine_idle() at regular intervals afterwards.
 		driver_name:		Driver to use
-		client_name:		Engine master client name
 		"""
 		self.__engine_idle_thread = threading.Thread(target=self.__engine_idle)
-		if super().engine_init(driver_name, client_name):
+		if super().engine_init(driver_name, self.client_name):
 			self._run_idle_loop = True
 			self.__engine_idle_thread.start()
 			return True
@@ -2172,6 +2172,12 @@ class PatchbayConnection:
 
 class Plugin(PatchbayClient):
 	"""
+	An abstraction of a carla plugin.
+
+	You must provide a plugin definition either by declaring the "plugin_def"
+	member in a derived class, or by passing a "plugin_def" to the constructor.
+	Plugin definitions may be discoverd by using the "plugin_dialog.py" script,
+	found in the "tests/" folder.
 	"""
 
 	plugin_def			= None
@@ -2612,7 +2618,6 @@ class Plugin(PatchbayClient):
 					val = val.encode_saved_state()
 				pe[key] = val
 		return pe
-
 
 
 

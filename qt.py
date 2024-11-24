@@ -9,7 +9,7 @@ from qt_extras import ShutUpQT
 from PyQt5 import uic
 from PyQt5.QtCore import Qt, QObject, pyqtSignal, pyqtSlot, QTimer, QMetaObject
 from PyQt5.QtWidgets import QAction, QFrame
-from simple_carla import Carla, Plugin, PATH_RESOURCES
+from simple_carla import _SimpleCarla, Plugin, PATH_RESOURCES
 
 sys.path.append(PATH_RESOURCES)
 
@@ -73,7 +73,7 @@ from carla_frontend import CarlaFrontendLib
 from carla_shared import DLL_EXTENSION
 
 
-class CarlaQt(Carla, QObject):
+class CarlaQt(_SimpleCarla, QObject):
 
 	sig_PortsChanged = pyqtSignal()
 	sig_PluginRemoved = pyqtSignal(QObject)
@@ -93,7 +93,7 @@ class CarlaQt(Carla, QObject):
 
 	def __init__(self, client_name):
 		QObject.__init__(self)
-		Carla.__init__(self, client_name)
+		_SimpleCarla.__init__(self, client_name)
 
 	# -----------------------------
 	# Engine callback
@@ -280,19 +280,23 @@ class CarlaQt(Carla, QObject):
 
 
 
-
 class QtPlugin(Plugin, QObject):
 	"""
 	This is an abstract class which inherits from QObject, for use by plugins which
 	have no direct user-interface, (i.e. track & channel filter instantiated by a
 	TrackWidget). (Qt does not allow inheriting from multiple classes which
 	extend QObject)
+
+	To use:
+		plugin = QtPlugin(plugin_def)
+		plugin.sig_ready.connect(self.plugin_ready)
+		plugin.add_to_carla()
 	"""
 
 	sig_Ready					= pyqtSignal(int)
 	sig_Removed 				= pyqtSignal(int)
 
-	def __init__(self, plugin_def, saved_state=None):
+	def __init__(self, plugin_def=None, saved_state=None):
 		QObject.__init__(self)
 		Plugin.__init__(self, plugin_def, saved_state)
 
@@ -309,127 +313,6 @@ class QtPlugin(Plugin, QObject):
 		else:
 			logging.warning(f"{self} original_plugin_name not in moniker_counts")
 		self.sig_Removed.emit(self.plugin_id)
-
-
-class QtWidgetPlugin(Plugin, QFrame):
-
-	has_user_interface = True
-
-	def __init__(self, parent, plugin_def, ui_filename, saved_state=None):
-		QFrame.__init__(self, parent)
-		Plugin.__init__(self, plugin_def, saved_state)
-		with ShutUpQT():
-			uic.loadUi(ui_filename, self)
-
-		self.setFixedHeight(self.fixed_height)
-		self.setFixedWidth(self.fixed_width)
-
-		self.generic_dialog = None
-		self.prefer_generic_dialog = False
-
-		self.b_name.autoFit()
-		self.b_name.setText(self.moniker)
-		self.b_name.toggled.connect(self.show_plugin_dialog)
-		self.b_name.setContextMenuPolicy(Qt.ActionsContextMenu)
-
-		action = QAction('Rename', self)
-		action.triggered.connect(self.action_rename)
-		self.b_name.addAction(action)
-
-		action = QAction('Prefer generic interface', self)
-		action.setCheckable(True)
-		action.triggered.connect(self.action_prefer_generic)
-		self.b_name.addAction(action)
-
-		# Vol & dry/wet dependent on plugin:
-		if self.can_volume:
-			self.b_volume.clicked.connect(self.b_volume_clicked)
-		else:
-			for obj_name in ["label_1", "b_volume", "sld_volume"]:
-				getattr(self, obj_name).setEnabled(False)
-		if self.can_drywet:
-			self.b_wet.clicked.connect(self.b_wet_clicked)
-		else:
-			for obj_name in ["label_2", "b_wet", "sld_wet"]:
-				getattr(self, obj_name).setEnabled(False)
-
-	def finalize_init(self):
-		# Stero / mono output peak meter (sets "_update_peak_meter" func):
-		if self._audio_out_count > 0:
-			if self._audio_out_count > 1:
-				peak_out = StereoPeakMeter(self)
-				self._update_peak_meter = self._update_peak_stereo
-			else:
-				peak_out = MonoPeakMeter(self)
-				self._update_peak_meter = self._update_peak_mono
-			self.lo_meter.replaceWidget(self.peak_out, peak_out)
-			self.peak_out.deleteLater()
-			self.peak_out = peak_out
-		super().finalize_init()
-
-	@pyqtSlot()
-	def action_rename(self):
-		new_name, ok = QInputDialog.getText(self, 'Rename plugin', 'Enter a name for this plugin', text=self.moniker)
-		if ok:
-			self.moniker = new_name
-
-	@pyqtSlot(bool)
-	def action_prefer_generic(self, checked):
-		self.prefer_generic_dialog = checked
-
-	def _update_peak_meter(self):
-		pass
-
-	def _update_peak_stereo(self):
-		self.peak_out.setValues(
-			CarlaQt.instance.get_output_peak_value(self.plugin_id, True),
-			CarlaQt.instance.get_output_peak_value(self.plugin_id, False)
-		)
-
-	def _update_peak_mono(self):
-		self.peak_out.setValue(CarlaQt.instance.get_output_peak_value(self.plugin_id, True))
-
-	def idle_fast(self):
-		self._update_peak_meter()
-
-	def inline_display_redraw(self):
-		retval = CarlaQt.instance.render_inline_display(self.plugin_id, self.fixed_width, self.fixed_height)
-
-	@pyqtSlot(bool)
-	def show_plugin_dialog(self, state):
-		if state:
-			if self.prefer_generic_dialog or not self.has_custom_ui:
-				if self.generic_dialog is None:
-					self.generic_dialog = PluginDialog(self)
-					self.generic_dialog.sig_Closed.connect(self.generic_dialog_closed)
-				self.generic_dialog.show()
-			else:
-				CarlaQt.instance.show_custom_ui(self.plugin_id, state)
-		else:
-			if not self.generic_dialog is None:
-				self.generic_dialog.hide()
-
-	@pyqtSlot()
-	def generic_dialog_closed(self):
-		with SigBlock(self.b_name):
-			self.b_name.setChecked(False)
-
-	def ui_state_changed(self, state):
-		if state == 0:
-			self.b_name.setChecked(False)
-		else:
-			self.b_name.setChecked(True)
-			if state == -1:
-				logging.debug("SETTING has_custom_ui = False")
-				self.has_custom_ui = False
-
-	@pyqtSlot()
-	def b_volume_clicked(self):
-		self.volume = 0
-
-	@pyqtSlot()
-	def b_wet_clicked(self):
-		self.dry_wet = 0
 
 
 

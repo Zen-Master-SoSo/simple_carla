@@ -1,4 +1,4 @@
-#  simple_carla/test.py
+#  simple_carla/tests/simple_carla.py
 #
 #  Copyright 2024 liyang <liyang@veronica>
 
@@ -14,11 +14,11 @@ class TestApp:
 	def __init__(self, meter_class='EBUMeter'):
 		super().__init__()
 		self.ready = False
-		Carla(APPLICATION_NAME)
-		Carla.instance.on_engine_started(self.carla_started)
-		Carla.instance.on_engine_stopped(self.carla_stopped)
-		if not Carla.instance.engine_init("JACK", APPLICATION_NAME):
-			audioError = Carla.instance.get_last_error()
+		carla = Carla(APPLICATION_NAME)
+		carla.on_engine_started(self.carla_started)
+		carla.on_engine_stopped(self.carla_stopped)
+		if not carla.engine_init("JACK"):
+			audioError = carla.get_last_error()
 			if audioError:
 				raise Exception("Could not connect to JACK; possible reasons:\n%s" % audioError)
 			else:
@@ -35,15 +35,11 @@ class TestApp:
 
 	def meter_ready(self, plugin_id):
 		logging.debug('TestApp meter_ready ')
-		carla_client = Carla.instance.system_client_by_name(APPLICATION_NAME)
-		if carla_client is not None:
-			carla_client.connect_audio_outputs_to(self.meter)
 		self.ready = True
 
 	def wait_ready(self):
 		"""
 		Blocks until sig_ready received from MeteringWorker.
-		(Replaces this class' sig_ready)
 		"""
 		watchdog = 0
 		while not self.ready:
@@ -101,4 +97,4 @@ if __name__ == "__main__":
 
 
 
-# end simple_carla/test.py
+# end simple_carla/tests/simple_carla.py
