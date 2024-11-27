@@ -1371,6 +1371,11 @@ class _SimpleCarla(CarlaHostDLL):
 		each plugin. This function uses the "client_name" to identity the plugin, and
 		assign it a "client_id". Then it is added to the "_clients" dict, which is
 		used to reference patchbay clients henceforth.
+
+		Clients which are not plugins added via this class become "System Clients".
+		Notification of their existence is made using the method appropriate to the
+		class/enviroment used. If Qt, sig_PatchbayClientAdded is emitted. If non-Qt,
+		use "on_client_added".
 		"""
 		if client_id in self._clients:
 			return logging.warning('cb_PatchbayClientAdded: "{0}" already in _clients as {1}'.format(
@@ -1385,10 +1390,20 @@ class _SimpleCarla(CarlaHostDLL):
 		else:
 			self._clients[client_id] = SystemPatchbayClient(client_id, client_name)
 			self._sys_clients[client_name] = self._clients[client_id]
+		self._alert_client_added(self._clients[client_id])
 
 	def cb_PatchbayClientRemoved(self, client_id):
+		"""
+		Called when a client, either a managed plugin or a "SystemClient", is removed.
+
+		Clients which are not plugins added via this class become "System Clients".
+		Notification of their existence is made using the method appropriate to the
+		class/enviroment used. If Qt, sig_PatchbayClientRemoved is emitted. If non-Qt,
+		use "on_client_removed".
+		"""
 		if client_id in self._clients:
 			client = self._clients[client_id]
+			self._alert_client_removed(client)
 			client.client_removed()
 			if client.client_name in self._sys_clients:
 				del self._sys_clients[client.client_name]
@@ -1421,23 +1436,15 @@ class _SimpleCarla(CarlaHostDLL):
 
 	def cb_PatchbayPortAdded(self, client_id, port_id, port_flags, group_id, port_name):
 		if client_id in self._clients:
-			try:
-				self._clients[client_id].port_added(port_id, port_flags, group_id, port_name)
-			except Exception as e:
-				raise e
-			finally:
-				self._alert_ports_changed()
+			self._clients[client_id].port_added(port_id, port_flags, group_id, port_name)
+			self._alert_port_added(self._clients[client_id].ports[port_id])
 		else:
 			logging.warning("cb_PatchbayPortAdded: client {0} not in _clients".format(client_id))
 
 	def cb_PatchbayPortRemoved(self, client_id, port_id):
 		if client_id in self._clients:
-			try:
-				self._clients[client_id].port_removed(port_id)
-			except Exception as e:
-				raise e
-			finally:
-				self._alert_ports_changed()
+			self._clients[client_id].port_removed(port_id)
+			self._alert_port_removed(self._clients[client_id].ports[port_id])
 		else:
 			logging.warning("cb_PatchbayPortRemoved: client {0} not in _clients".format(client_id))
 
@@ -1480,13 +1487,6 @@ class _SimpleCarla(CarlaHostDLL):
 			del self._connections[connection_id]
 		else:
 			logging.warning("cb_PatchbayConnectionRemoved: Connection not in ._connections")
-
-	# ================================================================================
-	# Helper functions for callbacks which vary depending on Qt or Not-Qt
-	# ================================================================================
-
-	def _alert_ports_changed(self):
-		raise NotImplementedError()
 
 	# ================================================================================
 	# Top-level plugin functions
@@ -1591,7 +1591,7 @@ class _SimpleCarla(CarlaHostDLL):
 
 	def target_audio_clients(self):
 		for client in self._clients.values():
-			if client.may_sink and client.audio_in_count() > 0:
+			if isinstance(client, SystemPatchbayClient, SharedPluginWidget) and client.audio_in_count() > 0:
 				yield client
 
 	# -------------------------------------------------------------------
@@ -1651,39 +1651,51 @@ class Carla(_SimpleCarla):
 
 	instance					= None		# Enforce singleton
 
-	_cb_portschanged			= None
-	_cb_pluginremoved			= None
-	_cb_lastpluginremoved		= None
-	_cb_enginestarted			= None
-	_cb_enginestopped			= None
-	_cb_processmodechanged		= None
-	_cb_transportmodechanged	= None
-	_cb_buffersizechanged		= None
-	_cb_sampleratechanged		= None
-	_cb_cancelableaction		= None
+	_cb_client_added			= None
+	_cb_client_removed			= None
+	_cb_port_added				= None
+	_cb_port_removed			= None
+	_cb_plugin_removed			= None
+	_cb_last_plugin_removed		= None
+	_cb_engine_started			= None
+	_cb_engine_stopped			= None
+	_cb_process_mode_changed	= None
+	_cb_transport_mode_changed	= None
+	_cb_buffer_size_changed		= None
+	_cb_sample_rate_changed		= None
+	_cb_cancelable_action		= None
 	_cb_info					= None
 	_cb_error					= None
 	_cb_quit					= None
-	_cb_applicationerror		= None
+	_cb_application_error		= None
 
 	# -------------------------------------------------------------------
 	# Setup callbacks
 	# -------------------------------------------------------------------
 
-	def on_ports_changed(self, callback):
-		self._cb_portschanged = callback
+	def on_client_added(self, callback):
+		self._cb_client_added = callback
+
+	def on_client_removed(self, callback):
+		self._cb_client_removed = callback
+
+	def on_port_added(self, callback):
+		self._cb_port_added = callback
+
+	def on_port_removed(self, callback):
+		self._cb_port_removed = callback
 
 	def on_plugin_removed(self, callback):
-		self._cb_pluginremoved = callback
+		self._cb_plugin_removed = callback
 
 	def on_last_plugin_removed(self, callback):
-		self._cb_lastpluginremoved = callback
+		self._cb_last_plugin_removed = callback
 
 	def on_engine_started(self, callback):
-		self._cb_enginestarted = callback
+		self._cb_engine_started = callback
 
 	def on_engine_stopped(self, callback):
-		self._cb_enginestopped = callback
+		self._cb_engine_stopped = callback
 
 	def on_process_mode_changed(self, callback):
 		self._cb_process_mode_changed = callback
@@ -1695,10 +1707,10 @@ class Carla(_SimpleCarla):
 		self._cb_buffersize_changed = callback
 
 	def on_sample_rate_changed(self, callback):
-		self._cb_sampleratechanged = callback
+		self._cb_sample_rate_changed = callback
 
 	def on_cancelable_action(self, callback):
-		self._cb_cancelableaction = callback
+		self._cb_cancelable_action = callback
 
 	def on_info(self, callback):
 		self._cb_info = callback
@@ -1710,7 +1722,7 @@ class Carla(_SimpleCarla):
 		self._cb_quit = callback
 
 	def on_applicatione_rror(self, callback):
-		self._cb_applicationerror = callback
+		self._cb_application_error = callback
 
 	# -------------------------------------------------------------------
 	# Engine callback
@@ -1833,43 +1845,43 @@ class Carla(_SimpleCarla):
 				self.processMode = value_1
 				self.transportMode = value_2
 				return None \
-					if self._cb_enginestarted is None \
-					else self._cb_enginestarted(plugin_id, value_1, value_2, value_3, float_val, string_val)
+					if self._cb_engine_started is None \
+					else self._cb_engine_started(plugin_id, value_1, value_2, value_3, float_val, string_val)
 
 			if action == ENGINE_CALLBACK_ENGINE_STOPPED:
 				return None \
-					if self._cb_enginestopped is None \
-					else self._cb_enginestopped()
+					if self._cb_engine_stopped is None \
+					else self._cb_engine_stopped()
 
 			if action == ENGINE_CALLBACK_PROCESS_MODE_CHANGED:
 				self.processMode = value_1
 				return None \
-					if self._cb_processmodechanged is None \
-					else self._cb_processmodechanged(value_1)
+					if self._cb_process_mode_changed is None \
+					else self._cb_process_mode_changed(value_1)
 
 			if action == ENGINE_CALLBACK_TRANSPORT_MODE_CHANGED:
 				self.transportMode = value_1
 				self.transportExtra = string_val
 				return None \
-					if self._cb_transportmodechanged is None \
-					else self._cb_transportmodechanged(value_1, string_val)
+					if self._cb_transport_mode_changed is None \
+					else self._cb_transport_mode_changed(value_1, string_val)
 
 			if action == ENGINE_CALLBACK_BUFFER_SIZE_CHANGED:
 				self.buffer_size = value_1
 				return None \
-					if self._cb_buffersizechanged is None \
-					else self._cb_buffersizechanged(self.buffer_size)
+					if self._cb_buffer_size_changed is None \
+					else self._cb_buffer_size_changed(self.buffer_size)
 
 			if action == ENGINE_CALLBACK_SAMPLE_RATE_CHANGED:
 				self.sample_rate = float_val
 				return None \
-					if self._cb_sampleratechanged is None \
-					else self._cb_sampleratechanged(self.sample_rate)
+					if self._cb_sample_rate_changed is None \
+					else self._cb_sample_rate_changed(self.sample_rate)
 
 			if action == ENGINE_CALLBACK_CANCELABLE_ACTION:
 				return None \
-					if self._cb_cancelableaction is None \
-					else self._cb_cancelableaction(plugin_id, bool(value_1 != 0), string_val)
+					if self._cb_cancelable_action is None \
+					else self._cb_cancelable_action(plugin_id, bool(value_1 != 0), string_val)
 
 			if action == ENGINE_CALLBACK_PROJECT_LOAD_FINISHED:
 				return
@@ -1899,33 +1911,43 @@ class Carla(_SimpleCarla):
 
 		except Exception as e:
 			print(traceback.format_exc())
-			if self._cb_applicationerror is not None:
-				self._cb_applicationerror(exc_type.__name__, str(e), fname, exc_tb.tb_lineno)
+			if self._cb_application_error is not None:
+				self._cb_application_error(exc_type.__name__, str(e), fname, exc_tb.tb_lineno)
 
 	# -------------------------------------------------------------------
 	# Helper functions for callbacks
 	# which vary depending on Qt or Not-Qt
 	# -------------------------------------------------------------------
 
-	def _alert_ports_changed(self):
-		if self._cb_portschanged is not None:
-			self._cb_portschanged()
+	def _alert_client_added(self, client):
+		if self._cb_client_added is not None:
+			self._cb_client_added(client)
+
+	def _alert_client_removed(self, client):
+		if self._cb_client_removed is not None:
+			self._cb_client_removed(client)
+
+	def _alert_port_added(self, port):
+		if self._cb_port_added is not None:
+			self._cb_port_added(port)
+
+	def _alert_port_removed(self, port):
+		if self._cb_port_removed is not None:
+			self._cb_port_removed(port)
 
 	def _alert_plugin_removed(self, plugin):
-		if self._cb_pluginremoved is not None:
-			self._cb_pluginremoved(plugin)
+		if self._cb_plugin_removed is not None:
+			self._cb_plugin_removed(plugin)
 
 	def _alert_last_plugin_removed(self):
-		if self._cb_lastpluginremoved is not None:
-			self._cb_lastpluginremoved()
+		if self._cb_last_plugin_removed is not None:
+			self._cb_last_plugin_removed()
 
 
 # -------------------------------------------------------------------
 # Patchbay clients, ports, connections:
 
 class PatchbayClient:
-
-	may_sink = False		# By default, may not be used as the destination of a TrackWidget
 
 	def __init__(self):
 		self.ports = {}
@@ -2036,8 +2058,6 @@ class PatchbayClient:
 
 
 class SystemPatchbayClient(PatchbayClient):
-
-	may_sink = True		# can be used as a global destination
 
 	def __init__(self, client_id, client_name):
 		super().__init__()
@@ -2187,7 +2207,6 @@ class Plugin(PatchbayClient):
 
 	plugin_def			= None
 	has_user_interface	= False
-	may_sink			= False
 
 	moniker_counts		= defaultdict(int)	# For naming multiple plugins with the same original_plugin_name
 

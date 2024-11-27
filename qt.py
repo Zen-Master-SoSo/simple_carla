@@ -6,7 +6,7 @@ import logging, traceback, os, sys
 
 # PyQt5 imports
 from PyQt5.QtCore import QObject, pyqtSignal
-from simple_carla import _SimpleCarla, Plugin, carla_paths
+from simple_carla import _SimpleCarla, Plugin, PatchbayClient, PatchbayPort, carla_paths
 binpath, respath = carla_paths()
 sys.path.append(respath)
 
@@ -69,7 +69,10 @@ from carla_backend import (
 
 class CarlaQt(_SimpleCarla, QObject):
 
-	sig_PortsChanged = pyqtSignal()
+	sig_PatchbayClientAdded = pyqtSignal(PatchbayClient)
+	sig_PatchbayClientRemoved = pyqtSignal(PatchbayClient)
+	sig_PatchbayPortAdded = pyqtSignal(PatchbayPort)
+	sig_PatchbayPortRemoved = pyqtSignal(PatchbayPort)
 	sig_PluginRemoved = pyqtSignal(QObject)
 	sig_LastPluginRemoved = pyqtSignal()
 	sig_EngineStarted = pyqtSignal(int, int, int, int, float, str)
@@ -263,8 +266,17 @@ class CarlaQt(_SimpleCarla, QObject):
 	# which vary depending on Qt or Not-Qt
 	# -----------------------------
 
-	def _alert_ports_changed(self):
-		self.sig_PortsChanged.emit()
+	def _alert_client_added(self, client):
+		self.sig_PatchbayClientAdded.emit(client)
+
+	def _alert_client_removed(self, client):
+		self.sig_PatchbayClientRemoved.emit(client)
+
+	def _alert_port_added(self, port):
+		self.sig_PatchbayPortAdded.emit(port)
+
+	def _alert_port_removed(self, port):
+		self.sig_PatchbayPortRemoved.emit(port)
 
 	def _alert_plugin_removed(self, plugin):
 		self.sig_PluginRemoved.emit(plugin)
