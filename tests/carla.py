@@ -1,7 +1,7 @@
-#  simple_carla/tests/simple_carla.py
+#  simple_carla/tests/carla.py
 #
 #  Copyright 2024 liyang <liyang@veronica>
-
+#
 import logging
 from simple_carla import Carla, Plugin
 from time import sleep
@@ -97,4 +97,4 @@ if __name__ == "__main__":
 
 
 
-# end simple_carla/tests/simple_carla.py
+#  end simple_carla/tests/carla.py

@@ -2,7 +2,6 @@
 #
 #  Copyright 2024 liyang <liyang@veronica>
 #
-
 from PyQt5.QtWidgets import QMainWindow
 from simple_carla.plugin_dialog import CarlaPluginDialog
 

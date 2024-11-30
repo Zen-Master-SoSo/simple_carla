@@ -1,7 +1,7 @@
 #  simple_carla/tests/qt_carla.py
 #
 #  Copyright 2024 liyang <liyang@veronica>
-
+#
 import logging
 from simple_carla.qt import CarlaQt, QtPlugin
 from time import sleep
@@ -89,4 +89,4 @@ if __name__ == "__main__":
 
 
 
-# end simple_carla/tests/qt_carla.py
+#  end simple_carla/tests/qt_carla.py
