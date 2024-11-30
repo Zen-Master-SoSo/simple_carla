@@ -4,7 +4,7 @@
 #
 
 from PyQt5.QtWidgets import QMainWindow
-from simple_carla.qt import CarlaPluginDialog
+from simple_carla.plugin_dialog import CarlaPluginDialog
 
 class TestWindow(QMainWindow):
 

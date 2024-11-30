@@ -7,7 +7,7 @@ Provides a means to use Carla's plugin dialog to compile a plugin's
 "plugin_def"; a dict containing the values essential for identifying and
 loading the plugin.
 """
-import sys
+import sys, os
 from simple_carla import carla_paths
 binpath, respath = carla_paths()
 sys.path.append(respath)
