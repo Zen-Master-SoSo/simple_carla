@@ -22,16 +22,16 @@ class TestApp:
 			if audioError:
 				raise Exception("Could not connect to JACK; possible reasons:\n%s" % audioError)
 			else:
-				raise Exception("Could not connect to JACK")
+				raise Exception('Could not connect to JACK')
 
 	def carla_started(self, plugin_count, process_mode, transport_mode, buffer_size, sample_rate, driver_name):
-		logging.debug("======= Engine started ======== ")
+		logging.debug('======= Engine started ======== ')
 		self.meter = EBUMeter()
 		self.meter.on_ready(self.meter_ready)
 		self.meter.add_to_carla()
 
 	def carla_stopped(self):
-		logging.debug("======= Engine stopped ========")
+		logging.debug('======= Engine stopped ========')
 
 	def meter_ready(self, plugin_id):
 		logging.debug('TestApp meter_ready ')

@@ -253,7 +253,7 @@ class CarlaQt(_SimpleCarla, QObject):
 			if action == ENGINE_CALLBACK_QUIT:
 				return self.sig_Quit.emit()
 
-			logging.warning("Unhandled action %d" % action)
+			logging.warning('Unhandled action %d', action)
 
 		except Exception as e:
 			print(traceback.format_exc())
@@ -310,14 +310,14 @@ class QtPlugin(Plugin, QObject):
 		"""
 		Called after post_embed_init() and all ports ready
 		"""
-		logging.debug(f"{self} ready")
+		logging.debug('%s ready', self)
 		self.sig_Ready.emit(self.plugin_id)
 
 	def got_removed(self):
 		if self.original_plugin_name in self.moniker_counts:
 			self.moniker_counts[self.original_plugin_name] -= 1
 		else:
-			logging.warning(f"{self} original_plugin_name not in moniker_counts")
+			logging.warning('%s original_plugin_name not in moniker_counts', self)
 		self.sig_Removed.emit(self.plugin_id)
 
 

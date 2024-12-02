@@ -236,7 +236,7 @@ def polite_function(func):
 	@wraps(func)
 	def wrapper(*args, **kwargs):
 		_engine_exclusive.acquire()
-		# logging.debug('polite_function (%s) acquired semaphore' % func.__name__)
+		# logging.debug('polite_function %s acquired semaphore', func.__name__)
 		retval = func(*args, **kwargs)
 		_engine_exclusive.release()
 		return retval
@@ -1269,15 +1269,15 @@ class _SimpleCarla(CarlaHostDLL):
 		the "_plugins" dict.
 		"""
 		if plugin_id in self._plugins:
-			logging.warning(f'cb_PluginAdded: Cannot add plugin {plugin_id}')
-			logging.warning(f'"{carla_plugin_name}" - plugin {self._plugins[plugin_id]} already in _plugins"')
+			logging.warning('cb_PluginAdded: Cannot add plugin %s', plugin_id)
+			logging.warning('"%s" - plugin %s already in _plugins"', carla_plugin_name, self._plugins[plugin_id])
 			return
 		if carla_plugin_name in self._plugin_by_uuid:
 			self._plugins[plugin_id] = self._plugin_by_uuid[carla_plugin_name]
-			logging.debug(f"Plugin added: {self._plugins[plugin_id]}")
+			logging.debug('Plugin added: %s', self._plugins[plugin_id])
 			self._plugins[plugin_id].post_embed_init(plugin_id) 		# Set up parameters, etc.
 		else:
-			logging.warning('cb_PluginAdded: Plugin "%s" not found in _plugin_by_uuid when added' % carla_plugin_name)
+			logging.warning('cb_PluginAdded: Plugin "%s" not found in _plugin_by_uuid when added', carla_plugin_name)
 
 	def cb_PluginRemoved(self, plugin_id):
 		if plugin_id in self._plugins:
@@ -1285,7 +1285,7 @@ class _SimpleCarla(CarlaHostDLL):
 			if plugin.uuid in self._plugin_by_uuid:
 				del self._plugin_by_uuid[plugin.uuid]
 			else:
-				logging.warning(f"cb_PluginRemoved: {plugin} uuid {plugin.uuid} not in self._plugin_by_uuid")
+				logging.warning('cb_PluginRemoved: "%s" uuid %s not in self._plugin_by_uuid', plugin, plugin.uuid)
 			self._alert_plugin_removed(plugin)
 			# Renumber plugins per Carla plugin_id conventions:
 			for i in range(plugin_id, len(self._plugins) - 1):
@@ -1296,7 +1296,7 @@ class _SimpleCarla(CarlaHostDLL):
 				self._alert_last_plugin_removed()
 			plugin.got_removed()
 		else:
-			logging.warning("cb_PluginRemoved: Plugin removed (%d) not in _plugins" % plugin_id)
+			logging.warning('cb_PluginRemoved: Plugin removed (%d) not in _plugins', plugin_id)
 
 	def cb_PluginRenamed(self, plugin_id, new_name):
 		self._plugins[plugin_id].plugin_renamed(new_name)
@@ -1308,7 +1308,7 @@ class _SimpleCarla(CarlaHostDLL):
 		if plugin_id in self._plugins:
 			self._plugins[plugin_id].parameter_value_changed(index, value)
 		else:
-			logging.debug(f"cb_ParameterValueChanged: plugin_id {plugin_id} not in self._plugins")
+			logging.debug('cb_ParameterValueChanged: plugin_id %s not in self._plugins', plugin_id)
 
 	def cb_ParameterDefaultChanged(self, plugin_id, index, value):
 		self._plugins[plugin_id].parameter_default_changed(index, value)
@@ -1377,7 +1377,8 @@ class _SimpleCarla(CarlaHostDLL):
 		use "on_client_added".
 		"""
 		if client_id in self._clients:
-			return logging.warning(f'cb_PatchbayClientAdded: "{self._clients[client_id]}" already in _clients as {client_name}')
+			return logging.warning('cb_PatchbayClientAdded: "%s" already in _clients as "%s"',
+				self._clients[client_id], client_name)
 		plugin_uuid = client_name.rsplit("/")[-1]
 		if plugin_uuid in self._plugin_by_uuid:
 			plugin = self._plugin_by_uuid[plugin_uuid]
@@ -1404,21 +1405,23 @@ class _SimpleCarla(CarlaHostDLL):
 			client.client_removed()
 			if client.client_name in self._sys_clients:
 				del self._sys_clients[client.client_name]
-				# logging.debug(f"cb_PatchbayClientRemoved: Client {client} was removed from _sys_clients")
+				logging.debug('cb_PatchbayClientRemoved: Client "%s" was removed from _sys_clients', client)
 			elif client.uuid in self._plugin_by_uuid:
 				# You would think it be like this, but it don't
 				# del self._plugin_by_uuid[client.uuid]
-				# logging.debug(f"cb_PatchbayClientRemoved: SKIPPING Plugin {client} with uuid {client.uuid} was removed from _plugin_by_uuid")
+				logging.debug('cb_PatchbayClientRemoved: Plugin %s with uuid %s was removed from _plugin_by_uuid - SKIPPING',
+					client, client.uuid)
 				pass
 			else:
-				logging.debug(f"cb_PatchbayClientRemoved: Client to remove ({client}) not in _sys_clients or _plugin_by_uuid")
+				logging.debug('cb_PatchbayClientRemoved: Client to remove (%s) not in _sys_clients or _plugin_by_uuid', client)
 			del self._clients[client_id]
-			# logging.debug(f"cb_PatchbayClientRemoved: Client ({client}) removed from _clients")
+			logging.debug('cb_PatchbayClientRemoved: Client "%s" removed from _clients', client)
 		else:
-			logging.warning(f"cb_PatchbayClientRemoved: Client removed ({client_id}) not in ._clients")
+			logging.warning('cb_PatchbayClientRemoved: Client removed (%s) not in ._clients', client_id)
 
 	def cb_PatchbayClientRenamed(self, client_id, new_client_name):
-		logging.debug(f'cb_PatchbayClientRenamed: "{self._clients[client_id]}" new name: "{new_client_name}"')
+		logging.debug('cb_PatchbayClientRenamed: "%s" new name: "%s"',
+			self._clients[client_id], new_client_name)
 		client = self._clients[client_id]
 		if client.client_name in self._sys_clients:
 			del self._sys_clients[client.client_name]
@@ -1426,36 +1429,40 @@ class _SimpleCarla(CarlaHostDLL):
 		self._clients[client_id].client_renamed(new_client_name)
 
 	def cb_PatchbayClientDataChanged(self, client_id, client_icon, plugin_id):
-		logging.debug(f'cb_PatchbayClientDataChanged: {self._clients[client_id]}')
+		logging.debug('cb_PatchbayClientDataChanged: %s', self._clients[client_id])
 
 	def cb_PatchbayClientPositionChanged(self, client_id, x1, y1, x2, y2):
-		logging.debug(f'cb_PatchbayClientPositionChanged: {self._clients[client_id]}')
+		logging.debug('cb_PatchbayClientPositionChanged: %s', self._clients[client_id])
 
 	def cb_PatchbayPortAdded(self, client_id, port_id, port_flags, group_id, port_name):
 		if client_id in self._clients:
 			self._clients[client_id].port_added(port_id, port_flags, group_id, port_name)
 			self._alert_port_added(self._clients[client_id].ports[port_id])
 		else:
-			logging.warning(f"cb_PatchbayPortAdded: client {client_id} not in _clients")
+			logging.warning('cb_PatchbayPortAdded: client %s not in _clients', client_id)
 
 	def cb_PatchbayPortRemoved(self, client_id, port_id):
 		if client_id in self._clients:
 			self._alert_port_removed(self._clients[client_id].ports[port_id])
 			self._clients[client_id].port_removed(port_id)
 		else:
-			logging.warning(f"cb_PatchbayPortRemoved: client {client_id} not in _clients")
+			logging.warning('cb_PatchbayPortRemoved: client %s not in _clients', client_id)
 
 	def cb_PatchbayPortChanged(self, client_id, port_id, port_flags, group_id, new_port_name):
-		logging.debug(f'cb_PatchbayPortChanged: client_id {client_id} port_id {port_id} group_id {group_id} new_port_name {new_port_name}')
+		logging.debug('cb_PatchbayPortChanged: client_id %s port_id %s group_id %s new_port_name %s',
+			client_id, port_id, group_id, new_port_name)
 
 	def cb_PatchbayPortGroupAdded(self, client_id, port_id, group_id, new_port_name):
-		logging.debug(f'cb_PatchbayPortGroupAdded: groupId {groupId} port_id {port_id} group_id {group_id} new_port_name {new_port_name}')
+		logging.debug('cb_PatchbayPortGroupAdded: groupId %s port_id %s group_id %s new_port_name %s',
+			groupId, port_id, group_id, new_port_name)
 
 	def cb_PatchbayPortGroupRemoved(self, groupId, port_id):
-		logging.debug(f'cb_PatchbayPortGroupRemoved: groupId {groupId} port_id {port_id}')
+		logging.debug('cb_PatchbayPortGroupRemoved: groupId %s port_id %s',
+			groupId, port_id)
 
 	def cb_PatchbayPortGroupChanged(self, groupId, port_id, group_id, new_port_name):
-		logging.debug(f'cb_PatchbayPortGroupChanged: groupId {groupId} port_id {port_id} group_id {group_id} new_port_name {new_port_name}')
+		logging.debug('cb_PatchbayPortGroupChanged: groupId %s port_id %s group_id %s new_port_name %s',
+			groupId, port_id, group_id, new_port_name)
 
 	def cb_PatchbayConnectionAdded(self, connection_id, client_out_id, port_out_id, client_in_id, port_in_id):
 		"""
@@ -1466,7 +1473,7 @@ class _SimpleCarla(CarlaHostDLL):
 		out_port = out_client.ports[port_out_id]
 		in_port = in_client.ports[port_in_id]
 		connection = PatchbayConnection(connection_id, out_port, in_port)
-		logging.debug(f"Added {connection}")
+		logging.debug('Added "%s"', connection)
 		self._connections[connection_id] = connection
 		out_port.connection_added(connection)
 		in_port.connection_added(connection)
@@ -1483,7 +1490,8 @@ class _SimpleCarla(CarlaHostDLL):
 			self._clients[connection.in_port.client_id].input_connection_removed(connection)
 			del self._connections[connection_id]
 		else:
-			logging.warning("cb_PatchbayConnectionRemoved: Connection not in ._connections")
+			logging.warning('cb_PatchbayConnectionRemoved: Connection %s not in ._connections',
+				connection_id)
 
 	# ================================================================================
 	# Top-level plugin functions
@@ -1602,7 +1610,7 @@ class _SimpleCarla(CarlaHostDLL):
 
 	def connect(self, port1, port2):
 		if not self.patchbay_connect(True, port1.client_id, port1.port_id, port2.client_id, port2.port_id):
-			logging.error(f'Patchbay connect FAILED! {port1} -> {port2}')
+			logging.error('Patchbay connect FAILED! %s -> %s', port1, port2)
 
 	# -------------------------------------------------------------------
 	# Plugin filename autoload trick
@@ -1616,7 +1624,7 @@ class _SimpleCarla(CarlaHostDLL):
 			raise Exception("Cannot set autoload plugin as it is already used by " + self.__autoload_plugin)
 		self.__autoload_plugin = plugin
 		self.__autoload_filename = filename
-		logging.debug(f"Autoloading {filename}")
+		logging.debug('Autoloading "%s"', filename)
 		self.show_custom_ui(plugin.plugin_id, True)
 		self.__autoload_plugin = None
 		self.__autoload_filename = None
@@ -1904,7 +1912,7 @@ class Carla(_SimpleCarla):
 					if self._cb_quit is None \
 					else self._cb_quit()
 
-			logging.warning("Unhandled action %d" % action)
+			logging.warning('Unhandled action %d', action)
 
 		except Exception as e:
 			print(traceback.format_exc())
@@ -2181,7 +2189,8 @@ class PatchbayConnection:
 
 	def delete(self):
 		if not Carla.instance.patchbay_disconnect(True, self.connection_id):
-			logging.error(f"Patchbay disconnect failed {self.out_port} -> {self.in_port}")
+			logging.error('Patchbay disconnect failed %s -> %s',
+				self.out_port, self.in_port)
 
 	def __str__(self):
 		return f'<PatchbayConnection {self.connection_id} {self.out_port} to {self.in_port}>'
@@ -2372,7 +2381,7 @@ class Plugin(PatchbayClient):
 		"""
 		Called after post_embed_init() and all ports ready
 		"""
-		logging.debug(f"{self} ready")
+		logging.debug('%s ready', self)
 		if self._cb_ready is not None:
 			self._cb_ready()
 
@@ -2427,20 +2436,24 @@ class Plugin(PatchbayClient):
 	# Functions called from Carla engine callbacks:
 
 	def debug(self, value1, value2, value3, valuef, value_str):
-		logging.debug(f'debug - {self} value1 {value1} value2 {value2} value3 {value3} valuef {valuef} value_str {value_str}')
+		logging.debug('debug - %s value1 %s value2 %s value3 %s valuef %s value_str %s',
+			self, value1, value2, value3, valuef, value_str)
 
 	def plugin_renamed(self, new_name):
-		logging.debug(f'plugin renamed - {self} newName {new_name}')
+		logging.debug('plugin renamed - %s newName %s',
+			self, new_name)
 		self.name = new_name
 
 	def plugin_unavailable(self, error_msg):
-		logging.debug(f'plugin unavailable - {self} errorMsg {errorMsg}')
+		logging.debug('plugin unavailable - %s errorMsg %s',
+			self, errorMsg)
 
 	def got_removed(self):
 		if self.original_plugin_name in self.moniker_counts:
 			self.moniker_counts[self.original_plugin_name] -= 1
 		else:
-			logging.warning(f"{self} original_plugin_name not in moniker_counts")
+			logging.warning('%s original_plugin_name not in moniker_counts',
+				self)
 		if self._cb_removed is not None:
 			self._cb_removed()
 
@@ -2472,28 +2485,36 @@ class Plugin(PatchbayClient):
 				logging.error('Parameter index not in self.parameters')
 
 	def parameter_internal_value_changed(self, parameter, value):
-		logging.debug(f'parameter {parameter} internal_value_changed')
+		logging.debug('parameter %s internal_value_changed',
+			parameter)
 
 	def parameter_default_changed(self, index, value):
-		logging.debug(f'parameter default value changed - {self} index {index} value {value}')
+		logging.debug('parameter default value changed - %s index %s value %s',
+			self, index, value)
 
 	def parameter_mapped_control_index_changed(self, index, ctrl):
-		logging.debug(f'parameter mapped control index changed - {self} index {index} ctrl {ctrl}')
+		logging.debug('parameter mapped control index changed - %s index %s ctrl %s',
+			self, index, ctrl)
 
 	def parameter_mapped_range_changed(self, index, minimum, maximum):
-		logging.debug(f'parameter mapped range changed - {self} index {index} minimum {minimum} maximum {maximum}')
+		logging.debug('parameter mapped range changed - %s index %s minimum %s maximum %s',
+			self, index, minimum, maximum)
 
 	def parameter_midi_channel_changed(self, index, channel):
-		logging.debug(f'parameter MIDI channel changed - {self} index {index} channel {channel}')
+		logging.debug('parameter MIDI channel changed - %s index %s channel %s',
+			self, index, channel)
 
 	def program_changed(self, index):
-		logging.debug(f'program changed - {self} index {index}')
+		logging.debug('program changed - %s index %s',
+			self, index)
 
 	def midi_program_changed(self, index):
-		logging.debug(f'MIDI program changed - {self} index {index}')
+		logging.debug('MIDI program changed - %s index %s',
+			self, index)
 
 	def option_changed(self, option, state):
-		logging.debug(f'option changed - {self} option {option} state {state}')
+		logging.debug('option changed - %s option %s state %s',
+			self, option, state)
 
 	def ui_state_changed(self, state):
 		"""
@@ -2522,19 +2543,19 @@ class Plugin(PatchbayClient):
 		pass
 
 	def update(self):
-		logging.debug(f'update  - {self}')
+		logging.debug('%s update', self)
 
 	def reload_info(self):
-		logging.debug(f'reload info  - {self}')
+		logging.debug('%s reload info', self)
 
 	def reload_parameters(self):
-		logging.debug(f'reload parameters - {self}')
+		logging.debug('%s reload parameters', self)
 
 	def reload_programs(self):
-		logging.debug(f'reload programs - {self}')
+		logging.debug('%s reload programs', self)
 
 	def reload_all(self):
-		logging.debug(f'reload all - {self}')
+		logging.debug('%s reload all', self)
 
 	def inline_display_redraw(self):
 		pass
@@ -2695,8 +2716,8 @@ class Parameter:
 			self.range = self.max - self.min
 
 			if False:
-				logging.debug('{0:12s} min {1} max {2} step {3} stepSmall {4:.8f} stepLarge {5:.8f} using unit "{6}"'.format(
-					self.name, self.min, self.max, self.step, self.stepSmall, self.stepLarge, self.unit))
+				logging.debug('%s min %s max %s step %s stepSmall %s stepLarge %s using unit "%s"',
+					self.name, self.min, self.max, self.step, self.stepSmall, self.stepLarge, self.unit)
 
 			# Scale points (get_parameter_scalepoint_info) if necessary
 			self.__scale_points = {
@@ -2706,11 +2727,11 @@ class Parameter:
 					for sc_idx in range(self.scalePointCount)
 				]} if self.uses_scalepoints else None
 			if not self.__scale_points is None and len(self.__scale_points) > 2:
-				logging.debug('{0} SCALEPOINTS USED:'.format(str(self.plugin())))
+				logging.debug('%s SCALEPOINTS USED:', str(self.plugin()))
 				pprint(self.__scale_points)
 
 	def internal_value_changed(self, value):
-		logging.debug(f'internal_value_changed {self} {value}')
+		logging.debug('internal_value_changed %s %s', self, value)
 		self.__value = value
 
 	@property
@@ -2719,17 +2740,18 @@ class Parameter:
 
 	@value.setter
 	def value(self, value):
-		logging.debug(f'Set {self}')
+		logging.debug('Set %s', self)
 		if not hasattr(self, "min"):
-			return logging.debug("PLUGIN {0} PARAMETER {1} HAS NO min".format(str(self.plugin()), str(self)))
+			return logging.debug('PLUGIN %s PARAMETER %s HAS NO min', self.plugin(), self)
 		if not hasattr(self, "max"):
-			return logging.debug("PLUGIN {0} PARAMETER {1} HAS NO max".format(str(self.plugin()), str(self)))
+			return logging.debug('PLUGIN %s PARAMETER %s HAS NO max', self.plugin(), self)
 		if self.min <= value <= self.max:
 			if self.__value != value:
 				self.__value = value
 				Carla.instance.set_parameter_value(self.plugin_id, self.parameter_id, value)
 		else:
-			logging.warning(f'Parameter "{name}" ({value}) out of range. Min: {self.min} Max {self.max}')
+			logging.warning('Parameter "%s" (%s) out of range. Min: %s Max %s',
+				name, value, self.min, self.max)
 
 	def get_internal_value(self):
 		self.__value = Carla.instance.get_current_parameter_value(self.plugin_id, self.parameter_id)

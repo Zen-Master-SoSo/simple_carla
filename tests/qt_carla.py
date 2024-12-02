@@ -27,18 +27,18 @@ class TestApp(QMainWindow):
 			if audioError:
 				raise Exception("Could not connect to JACK; possible reasons:\n%s" % audioError)
 			else:
-				raise Exception("Could not connect to JACK")
+				raise Exception('Could not connect to JACK')
 
 	@pyqtSlot(int, int, int, int, float, str)
 	def carla_started(self, plugin_count, process_mode, transport_mode, buffer_size, sample_rate, driver_name):
-		logging.debug("======= Engine started ======== ")
+		logging.debug('======= Engine started ======== ')
 		self.meter = EBUMeter()
 		self.meter.sig_Ready.connect(self.meter_ready)
 		self.meter.add_to_carla()
 
 	@pyqtSlot()
 	def carla_stopped(self):
-		logging.debug("======= Engine stopped ========")
+		logging.debug('======= Engine stopped ========')
 
 	@pyqtSlot(int)
 	def meter_ready(self, plugin_id):
