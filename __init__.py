@@ -251,6 +251,7 @@ class _SimpleCarla(CarlaHostDLL):
 
 	idle_interval		= 1 / 50
 	instance			= None
+	client_name			= None
 	__autoload_plugin	= None
 	__autoload_filename	= None
 
@@ -268,67 +269,68 @@ class _SimpleCarla(CarlaHostDLL):
 		cls.instance = Carla.instance = None
 
 	def __init__(self, client_name):
-		self.client_name = client_name
-		self._init_dicts()
-		libname = "libcarla_standalone2.so"
-		CarlaHostDLL.__init__(self, os.path.join(binpath, libname), False)
+		if self.client_name is None:
+			self.client_name = client_name
+			self._init_dicts()
+			libname = "libcarla_standalone2.so"
+			CarlaHostDLL.__init__(self, os.path.join(binpath, libname), False)
 
-		self._run_idle_loop = False
-		self._engine_callback = EngineCallbackFunc(self.engine_callback)
-		self.lib.carla_set_engine_callback(self.handle, self._engine_callback, None)
-		self._file_callback = FileCallbackFunc(self.file_callback)
-		self.lib.carla_set_file_callback(self.handle, self._file_callback, None)
+			self._run_idle_loop = False
+			self._engine_callback = EngineCallbackFunc(self.engine_callback)
+			self.lib.carla_set_engine_callback(self.handle, self._engine_callback, None)
+			self._file_callback = FileCallbackFunc(self.file_callback)
+			self.lib.carla_set_file_callback(self.handle, self._file_callback, None)
 
-		self.nsmOK = self.nsm_init(os.getpid(), self.client_name)
-		self.audioDriverForced = "JACK"
-		self.forceStereo = False
-		self.resetXruns = True
-		self.transportMode = ENGINE_TRANSPORT_MODE_JACK
-		self.maxParameters = 200
-		self.preferPluginBridges = False
-		self.preferUIBridges = True
-		self.preventBadBehaviour = False
-		self.uiBridgesTimeout = 4000
-		self.uisAlwaysOnTop = True
-		self.processMode = ENGINE_PROCESS_MODE_MULTIPLE_CLIENTS
-		self.nextProcessMode = self.processMode
-		self.processModeForced = True
-		self.showLogs = False
+			self.nsmOK = self.nsm_init(os.getpid(), self.client_name)
+			self.audioDriverForced = "JACK"
+			self.forceStereo = False
+			self.resetXruns = True
+			self.transportMode = ENGINE_TRANSPORT_MODE_JACK
+			self.maxParameters = 200
+			self.preferPluginBridges = False
+			self.preferUIBridges = True
+			self.preventBadBehaviour = False
+			self.uiBridgesTimeout = 4000
+			self.uisAlwaysOnTop = True
+			self.processMode = ENGINE_PROCESS_MODE_MULTIPLE_CLIENTS
+			self.nextProcessMode = self.processMode
+			self.processModeForced = True
+			self.showLogs = False
 
-		self.set_engine_option(ENGINE_OPTION_PATH_BINARIES, 0, binpath)
-		self.set_engine_option(ENGINE_OPTION_PATH_RESOURCES, 0, respath)
-		self.set_engine_option(ENGINE_OPTION_AUDIO_DRIVER, 0, self.audioDriverForced)
-		self.set_engine_option(ENGINE_OPTION_FORCE_STEREO, self.forceStereo, "")
-		self.set_engine_option(ENGINE_OPTION_RESET_XRUNS, self.resetXruns, "")
-		self.set_engine_option(ENGINE_OPTION_TRANSPORT_MODE, self.transportMode, "")
-		self.set_engine_option(ENGINE_OPTION_MAX_PARAMETERS, self.maxParameters, "")
-		self.set_engine_option(ENGINE_OPTION_PREFER_PLUGIN_BRIDGES, self.preferPluginBridges, "")
-		self.set_engine_option(ENGINE_OPTION_PREFER_UI_BRIDGES, self.preferUIBridges, "")
-		self.set_engine_option(ENGINE_OPTION_PREVENT_BAD_BEHAVIOUR, self.preventBadBehaviour, "")
-		self.set_engine_option(ENGINE_OPTION_UI_BRIDGES_TIMEOUT, self.uiBridgesTimeout, "")
-		self.set_engine_option(ENGINE_OPTION_UIS_ALWAYS_ON_TOP, self.uisAlwaysOnTop, "")
-		self.set_engine_option(ENGINE_OPTION_PROCESS_MODE, self.processMode, "")
-		self.set_engine_option(ENGINE_OPTION_DEBUG_CONSOLE_OUTPUT, self.showLogs, "")
-		self.set_engine_option(ENGINE_OPTION_CLIENT_NAME_PREFIX, 0, self.client_name)
+			self.set_engine_option(ENGINE_OPTION_PATH_BINARIES, 0, binpath)
+			self.set_engine_option(ENGINE_OPTION_PATH_RESOURCES, 0, respath)
+			self.set_engine_option(ENGINE_OPTION_AUDIO_DRIVER, 0, self.audioDriverForced)
+			self.set_engine_option(ENGINE_OPTION_FORCE_STEREO, self.forceStereo, "")
+			self.set_engine_option(ENGINE_OPTION_RESET_XRUNS, self.resetXruns, "")
+			self.set_engine_option(ENGINE_OPTION_TRANSPORT_MODE, self.transportMode, "")
+			self.set_engine_option(ENGINE_OPTION_MAX_PARAMETERS, self.maxParameters, "")
+			self.set_engine_option(ENGINE_OPTION_PREFER_PLUGIN_BRIDGES, self.preferPluginBridges, "")
+			self.set_engine_option(ENGINE_OPTION_PREFER_UI_BRIDGES, self.preferUIBridges, "")
+			self.set_engine_option(ENGINE_OPTION_PREVENT_BAD_BEHAVIOUR, self.preventBadBehaviour, "")
+			self.set_engine_option(ENGINE_OPTION_UI_BRIDGES_TIMEOUT, self.uiBridgesTimeout, "")
+			self.set_engine_option(ENGINE_OPTION_UIS_ALWAYS_ON_TOP, self.uisAlwaysOnTop, "")
+			self.set_engine_option(ENGINE_OPTION_PROCESS_MODE, self.processMode, "")
+			self.set_engine_option(ENGINE_OPTION_DEBUG_CONSOLE_OUTPUT, self.showLogs, "")
+			self.set_engine_option(ENGINE_OPTION_CLIENT_NAME_PREFIX, 0, self.client_name)
 
-		# Use paths set in Carla application
-		carla_settings = QSettings("falkTX", "Carla2")
-		self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_LADSPA,
-			splitter.join(carla_settings.value(CARLA_KEY_PATHS_LADSPA, CARLA_DEFAULT_LADSPA_PATH, list)))
-		self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_DSSI,
-			splitter.join(carla_settings.value(CARLA_KEY_PATHS_DSSI, CARLA_DEFAULT_DSSI_PATH, list)))
-		self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_LV2,
-			splitter.join(carla_settings.value(CARLA_KEY_PATHS_LV2, CARLA_DEFAULT_LV2_PATH, list)))
-		self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_VST2,
-			splitter.join(carla_settings.value(CARLA_KEY_PATHS_LV2, CARLA_DEFAULT_LV2_PATH, list)))
-		self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_VST2,
-			splitter.join(carla_settings.value(CARLA_KEY_PATHS_VST2, CARLA_DEFAULT_VST2_PATH, list)))
-		self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_VST3,
-			splitter.join(carla_settings.value(CARLA_KEY_PATHS_VST3, CARLA_DEFAULT_VST3_PATH, list)))
-		self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_SF2,
-			splitter.join(carla_settings.value(CARLA_KEY_PATHS_SF2, CARLA_DEFAULT_SF2_PATH, list)))
-		self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_SFZ,
-			splitter.join(carla_settings.value(CARLA_KEY_PATHS_SFZ, CARLA_DEFAULT_SFZ_PATH, list)))
+			# Use paths set in Carla application
+			carla_settings = QSettings("falkTX", "Carla2")
+			self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_LADSPA,
+				splitter.join(carla_settings.value(CARLA_KEY_PATHS_LADSPA, CARLA_DEFAULT_LADSPA_PATH, list)))
+			self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_DSSI,
+				splitter.join(carla_settings.value(CARLA_KEY_PATHS_DSSI, CARLA_DEFAULT_DSSI_PATH, list)))
+			self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_LV2,
+				splitter.join(carla_settings.value(CARLA_KEY_PATHS_LV2, CARLA_DEFAULT_LV2_PATH, list)))
+			self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_VST2,
+				splitter.join(carla_settings.value(CARLA_KEY_PATHS_LV2, CARLA_DEFAULT_LV2_PATH, list)))
+			self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_VST2,
+				splitter.join(carla_settings.value(CARLA_KEY_PATHS_VST2, CARLA_DEFAULT_VST2_PATH, list)))
+			self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_VST3,
+				splitter.join(carla_settings.value(CARLA_KEY_PATHS_VST3, CARLA_DEFAULT_VST3_PATH, list)))
+			self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_SF2,
+				splitter.join(carla_settings.value(CARLA_KEY_PATHS_SF2, CARLA_DEFAULT_SF2_PATH, list)))
+			self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_SFZ,
+				splitter.join(carla_settings.value(CARLA_KEY_PATHS_SFZ, CARLA_DEFAULT_SFZ_PATH, list)))
 
 	def _init_dicts(self):
 		self._plugins			= {}	# Plugin, indexed on Carla -generated "plugin_id"

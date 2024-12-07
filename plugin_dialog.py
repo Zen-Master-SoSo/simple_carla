@@ -22,6 +22,7 @@ class CarlaPluginDialog():
 	usethe same instance for the life of the program.
 	"""
 	_instance = None
+	_carla_felib = None
 
 	def __new__(cls, parent):
 		if cls._instance is None:
@@ -29,16 +30,17 @@ class CarlaPluginDialog():
 		return cls._instance
 
 	def __init__(self, parent):
-		felib_path = os.path.join(binpath, 'libcarla_frontend.so')
-		self._carla_felib = CarlaFrontendLib(felib_path)
-		self._plugin_list_dialog = self._carla_felib.createPluginListDialog(parent, {
-			'showPluginBridges': False,
-			'showWineBridges': False,
-			'useSystemIcons': False,
-			'wineAutoPrefix': '',
-			'wineExecutable': '',
-			'wineFallbackPrefix': ''
-		})
+		if self._carla_felib is None:
+			felib_path = os.path.join(binpath, 'libcarla_frontend.so')
+			self._carla_felib = CarlaFrontendLib(felib_path)
+			self._plugin_list_dialog = self._carla_felib.createPluginListDialog(parent, {
+				'showPluginBridges': False,
+				'showWineBridges': False,
+				'useSystemIcons': False,
+				'wineAutoPrefix': '',
+				'wineExecutable': '',
+				'wineFallbackPrefix': ''
+			})
 
 	def exec_dialog(self):
 		"""

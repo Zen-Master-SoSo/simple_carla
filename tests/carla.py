@@ -36,6 +36,7 @@ class TestApp:
 	def meter_ready(self, plugin_id):
 		logging.debug('TestApp meter_ready ')
 		self.ready = True
+		assert(Carla.instance is Carla(APPLICATION_NAME))
 
 	def wait_ready(self):
 		"""
