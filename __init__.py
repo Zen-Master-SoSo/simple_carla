@@ -1537,8 +1537,8 @@ class _SimpleCarla(CarlaHostDLL):
 			return  self._clients[client_id]
 		raise IndexError()
 
-	def client_count(self):
-		return len(self._clients)
+	def clients(self):
+		return list(self._clients.values())
 
 	def named_system_client(self, client_name):
 		if client_name in self._sys_clients:
@@ -1595,11 +1595,6 @@ class _SimpleCarla(CarlaHostDLL):
 		for client in self._sys_clients.values():
 			for port in client.midi_outs():
 				yield port
-
-	def target_audio_clients(self):
-		for client in self._clients.values():
-			if isinstance(client, SystemPatchbayClient, SharedPluginWidget) and client.audio_in_count() > 0:
-				yield client
 
 	# -------------------------------------------------------------------
 	# PatchbayConnection retrieval
