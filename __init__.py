@@ -9,7 +9,6 @@ from functools import wraps
 from collections import defaultdict
 from uuid import uuid4 as uuid
 from pprint import pprint
-from PyQt5.QtCore import QSettings
 
 def carla_paths():
 	"""
@@ -312,25 +311,6 @@ class _SimpleCarla(CarlaHostDLL):
 			self.set_engine_option(ENGINE_OPTION_PROCESS_MODE, self.processMode, "")
 			self.set_engine_option(ENGINE_OPTION_DEBUG_CONSOLE_OUTPUT, self.showLogs, "")
 			self.set_engine_option(ENGINE_OPTION_CLIENT_NAME_PREFIX, 0, self.client_name)
-
-			# Use paths set in Carla application
-			carla_settings = QSettings("falkTX", "Carla2")
-			self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_LADSPA,
-				splitter.join(carla_settings.value(CARLA_KEY_PATHS_LADSPA, CARLA_DEFAULT_LADSPA_PATH, list)))
-			self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_DSSI,
-				splitter.join(carla_settings.value(CARLA_KEY_PATHS_DSSI, CARLA_DEFAULT_DSSI_PATH, list)))
-			self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_LV2,
-				splitter.join(carla_settings.value(CARLA_KEY_PATHS_LV2, CARLA_DEFAULT_LV2_PATH, list)))
-			self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_VST2,
-				splitter.join(carla_settings.value(CARLA_KEY_PATHS_LV2, CARLA_DEFAULT_LV2_PATH, list)))
-			self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_VST2,
-				splitter.join(carla_settings.value(CARLA_KEY_PATHS_VST2, CARLA_DEFAULT_VST2_PATH, list)))
-			self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_VST3,
-				splitter.join(carla_settings.value(CARLA_KEY_PATHS_VST3, CARLA_DEFAULT_VST3_PATH, list)))
-			self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_SF2,
-				splitter.join(carla_settings.value(CARLA_KEY_PATHS_SF2, CARLA_DEFAULT_SF2_PATH, list)))
-			self.set_engine_option(ENGINE_OPTION_PLUGIN_PATH, PLUGIN_SFZ,
-				splitter.join(carla_settings.value(CARLA_KEY_PATHS_SFZ, CARLA_DEFAULT_SFZ_PATH, list)))
 
 	def _init_dicts(self):
 		self._plugins			= {}	# Plugin, indexed on Carla -generated "plugin_id"
@@ -2187,9 +2167,6 @@ class PatchbayConnection:
 		}
 
 	def disconnect(self):
-		QTimer.singleShot(0, self.delete)
-
-	def delete(self):
 		if not Carla.instance.patchbay_disconnect(True, self.connection_id):
 			logging.error('Patchbay disconnect failed %s -> %s',
 				self.out_port, self.in_port)
