@@ -7,7 +7,6 @@ from numpy import zeros as np_zeros
 from ctypes import byref, cast, c_char_p, c_void_p, POINTER
 from functools import wraps
 from collections import defaultdict
-from uuid import uuid4 as uuid
 from pprint import pprint
 
 def carla_paths():
@@ -242,6 +241,11 @@ def polite_function(func):
 	return wrapper
 
 
+__uuid = 0
+def uuid():
+	global __uuid
+	__uuid += 1
+	return '%03d' % __uuid
 
 # -------------------------------------------------------------------
 # Carla host wrapper
@@ -2236,7 +2240,7 @@ class Plugin(PatchbayClient):
 		self._midi_notes			= np_zeros((16, 128), dtype=bool)	# array for determining whether midi active.
 
 		if saved_state is None:
-			self.uuid = str(uuid())
+			self.uuid = uuid()
 			self.moniker_counts[self.original_plugin_name] += 1
 			self.moniker = "{0} {1}".format(self.original_plugin_name, self.moniker_counts[self.original_plugin_name])
 		else:
