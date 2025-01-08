@@ -1359,7 +1359,7 @@ class _SimpleCarla(CarlaHostDLL):
 
 		Clients which are not plugins added via this class become "System Clients".
 		Notification of their existence is made using the method appropriate to the
-		class/enviroment used. If Qt, sig_PatchbayClientAdded is emitted. If non-Qt,
+		class/enviroment used. If Qt, sig_patchbay_client_added is emitted. If non-Qt,
 		use "on_client_added".
 		"""
 		if client_id in self._clients:
@@ -1382,7 +1382,7 @@ class _SimpleCarla(CarlaHostDLL):
 
 		Clients which are not plugins added via this class become "System Clients".
 		Notification of their existence is made using the method appropriate to the
-		class/enviroment used. If Qt, sig_PatchbayClientRemoved is emitted. If non-Qt,
+		class/enviroment used. If Qt, sig_patchbay_client_removed is emitted. If non-Qt,
 		use "on_client_removed".
 		"""
 		if client_id in self._clients:
@@ -1933,6 +1933,15 @@ class Carla(_SimpleCarla):
 # Patchbay clients, ports, connections:
 
 class PatchbayClient:
+	"""
+	Patchbay client which has patchbay ports.
+
+	Members of interest
+	-------------------
+		client_id:		(int)	Assigned by Carla
+		client_name:	(str)	JACK client name (i.e. "system")
+		moniker:		(str)	May be client name, or assigned by other.
+	"""
 
 	def __init__(self):
 		self.ports = {}
@@ -1941,15 +1950,24 @@ class PatchbayClient:
 	# Methods which respond to patchbay changes
 
 	def client_renamed(self, new_client_name):
+		"""
+		Called from Carla if renamed.
+		"""
 		self.client_name = new_client_name
 
 	def client_removed(self):
 		pass
 
 	def port_added(self, port_id, port_flags, group_id, port_name):
+		"""
+		Called from Carla when a port is added to this client.
+		"""
 		self.ports[port_id] = PatchbayPort(self.client_id, port_id, port_flags, group_id, port_name)
 
 	def port_removed(self, port_id):
+		"""
+		Called from Carla when a port is removed from this client.
+		"""
 		del self.ports[port_id]
 
 	def input_connection_removed(self, connection):
@@ -1970,26 +1988,53 @@ class PatchbayClient:
 	# Methods which initiate patchbay changes
 
 	def connect_outputs_to(self, other_client):
+		"""
+		other_client: PatchbayClient (or class extending PatchbayClient)
+		Connects audio and / or midi outputs to the "other_client" inputs.
+		In the case of multiple (i.e. stereo) ports, the order in which they are
+		connected is determined by the client.
+		"""
 		self.connect_audio_outputs_to(other_client)
 		self.connect_midi_outputs_to(other_client)
 
 	def connect_audio_outputs_to(self, other_client):
+		"""
+		other_client: PatchbayClient (or class extending PatchbayClient)
+		Connects audio outputs to the "other_client" inputs.
+		In the case of multiple (i.e. stereo) ports, the order in which they are
+		connected is determined by the client.
+		"""
 		for outport, inport in zip(self.audio_outs(), other_client.audio_ins()):
 			outport.connect_to(inport)
 
 	def connect_midi_outputs_to(self, other_client):
+		"""
+		other_client: PatchbayClient (or class extending PatchbayClient)
+		Connects midi outputs to the "other_client" inputs.
+		In the case of multiple ports, the order in which they are connected is
+		determined by the client.
+		"""
 		for outport, inport in zip(self.midi_outs(), other_client.midi_ins()):
 			outport.connect_to(inport)
 
 	def disconnect_all(self):
+		"""
+		Disconnects all input and output ports from all connections.
+		"""
 		self.disconnect_inputs()
 		self.disconnect_outputs()
 
 	def disconnect_inputs(self):
+		"""
+		Disconnects all input ports from all connections.
+		"""
 		for port in self.input_ports():
 			port.disconnect_all()
 
 	def disconnect_outputs(self):
+		"""
+		Disconnects all output ports from all connections.
+		"""
 		for port in self.output_ports():
 			port.disconnect_all()
 
@@ -1997,43 +2042,91 @@ class PatchbayClient:
 	# Port lists by classification:
 
 	def input_ports(self):
+		"""
+		Returns list of PatchbayPort.
+		"""
 		return [ port for port in self.ports.values() if port.is_input ]
 
 	def output_ports(self):
+		"""
+		Returns list of PatchbayPort.
+		"""
 		return [ port for port in self.ports.values() if port.is_output ]
 
 	def audio_ins(self):
+		"""
+		Returns list of PatchbayPort.
+		"""
 		return [ port for port in self.ports.values() if port.is_audio and port.is_input ]
 
 	def audio_outs(self):
+		"""
+		Returns list of PatchbayPort.
+		"""
 		return [ port for port in self.ports.values() if port.is_audio and port.is_output ]
 
 	def midi_ins(self):
+		"""
+		Returns list of PatchbayPort.
+		"""
 		return [ port for port in self.ports.values() if port.is_midi and port.is_input ]
 
 	def midi_outs(self):
+		"""
+		Returns list of PatchbayPort.
+		"""
 		return [ port for port in self.ports.values() if port.is_midi and port.is_output ]
 
 	def cv_ins(self):
+		"""
+		Returns list of PatchbayPort.
+		"""
 		return [ port for port in self.ports.values() if port.is_cv and port.is_input ]
 
 	def cv_outs(self):
+		"""
+		Returns list of PatchbayPort.
+		"""
 		return [ port for port in self.ports.values() if port.is_cv and port.is_output ]
 
 	# -------------------------------------------------------------------
 	# Other port access funcs:
 
 	def first_midi_input_port(self):
+		"""
+		Returns PatchbayPort.
+		"""
 		for port in self.ports.values():
 			if port.is_midi and port.is_input:
 				return port
 
 	def named_port(self, port_name):
+		"""
+		Returns PatchbayPort.
+		"""
 		for port in self.ports.values():
 			if port.port_name == port_name:
 				return port
 
+	def input_clients(self):
+		"""
+		Returns list of PatchbayClient.
+		Return all clients which are connected to all of this PatchbayClient's input ports.
+		(May return classes extending PatchbayClient, i.e. SystemPatchbayClient / Plugin)
+		"""
+		clients = []
+		for port in self.input_ports():
+			for client in port.connected_clients():
+				if client not in clients:
+					clients.append(client)
+		return clients
+
 	def output_clients(self):
+		"""
+		Returns list of PatchbayClient.
+		Return all clients which are connected to all of this PatchbayClient's output ports.
+		(May return classes extending PatchbayClient, i.e. SystemPatchbayClient / Plugin)
+		"""
 		clients = []
 		for port in self.output_ports():
 			for client in port.connected_clients():
@@ -2043,6 +2136,9 @@ class PatchbayClient:
 
 
 class SystemPatchbayClient(PatchbayClient):
+	"""
+	Represents a JACK client which is not a Plugin added to the Carla instance.
+	"""
 
 	def __init__(self, client_id, client_name):
 		super().__init__()
@@ -2067,6 +2163,10 @@ class SystemPatchbayClient(PatchbayClient):
 
 
 class PatchbayPort:
+	"""
+	Represents a JACK port, owned by a PatchbayClient.
+	Owned by classes extending PatchbayClient, i.e. SystemPatchbayClient / Plugin.
+	"""
 
 	def __init__(self, client_id, port_id, port_flags, group_id, port_name):
 		self._connections = {}
@@ -2082,12 +2182,18 @@ class PatchbayPort:
 		self.port_name	= port_name
 
 	# -------------------------------------------------------------------
-	# Functions called from Patchbay in response to host callbacks:
+	# Functions called from Carla in response to host callbacks:
 
 	def connection_added(self, connection):
+		"""
+		Called from Carla when connection is made.
+		"""
 		self._connections[connection.connection_id] = connection
 
 	def connection_removed(self, connection):
+		"""
+		Called from Carla when connection is removed.
+		"""
 		del self._connections[connection.connection_id]
 
 	# -------------------------------------------------------------------
@@ -2095,42 +2201,80 @@ class PatchbayPort:
 
 	def connect_to(self, other_port):
 		"""
+		other_port: PatchbayPort
 		Connect to another port. Will not attempt to connect if already connected.
 		"""
 		if not self.is_connected_to(other_port):
 			Carla.instance.connect(self, other_port)
 
 	def disconnect_from(self, other_port):
+		"""
+		other_port: PatchbayPort
+		Disconnect from another port. If not connected, does nothing.
+		"""
 		for conn in self._connections.values():
 			if conn.in_port is other_port or conn.out_port is other_port:
 				conn.disconnect()
 
 	def disconnect_all(self):
+		"""
+		Disconnect from all other ports.
+		"""
 		for conn in self._connections.values():
 			conn.disconnect()
 
 	def client(self):
+		"""
+		Returns PatchbayClient.
+		(May return class extending PatchbayClient, i.e. SystemPatchbayClient / Plugin)
+		"""
 		return Carla.instance.client(self.client_id)
 
+	def client_name(self):
+		"""
+		Returns (str) the JACK client name of the PatchbayClient which "owns" this PatchbayPort.1
+		"""
+		return self.client().client_name
+
 	def display_name(self):
+		"""
+		Returns str (client moniker + this port's name)
+		"""
 		return "{0} {1}".format(self.client().moniker, self.port_name)
 
 	def jack_name(self):
+		"""
+		Returns str (client moniker + this port's name in format that JACK uses)
+		"""
 		return "{0}:{1}".format(self.client().client_name, self.port_name)
 
 	def is_connected_to(self, other_port):
+		"""
+		other_port: PatchbayPort
+		Returns boolean True if connected.
+		"""
 		for conn in self._connections.values():
 			if conn.in_port is other_port or conn.out_port is other_port:
 				return True
 		return False
 
 	def connected_ports(self):
+		"""
+		Returns list of PatchbayPort
+		"""
 		return [ conn.in_port if conn.out_port is self else conn.out_port for conn in self._connections.values() ]
 
 	def connected_clients(self):
+		"""
+		Returns list of PatchbayClient
+		(May return class extending PatchbayClient, i.e. SystemPatchbayClient / Plugin)
+		"""
 		return [ port.client() for port in self.connected_ports() ]
 
 	def encode_saved_state(self):
+		"""
+		Returns a dict which is encoded to JSON when saving a project.
+		"""
 		client = self.client()
 		return {
 			"system"	: isinstance(client, SystemPatchbayClient),

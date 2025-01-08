@@ -20,8 +20,8 @@ class TestApp(QMainWindow):
 		super().__init__()
 		self.ready = False
 		carla = CarlaQt(APPLICATION_NAME)
-		CarlaQt.instance.sig_EngineStarted.connect(self.carla_started)
-		CarlaQt.instance.sig_EngineStopped.connect(self.carla_stopped)
+		CarlaQt.instance.sig_engine_started.connect(self.carla_started)
+		CarlaQt.instance.sig_engine_stopped.connect(self.carla_stopped)
 		if not CarlaQt.instance.engine_init("JACK"):
 			audioError = CarlaQt.instance.get_last_error()
 			if audioError:
@@ -33,7 +33,7 @@ class TestApp(QMainWindow):
 	def carla_started(self, plugin_count, process_mode, transport_mode, buffer_size, sample_rate, driver_name):
 		logging.debug('======= Engine started ======== ')
 		self.meter = EBUMeter()
-		self.meter.sig_Ready.connect(self.meter_ready)
+		self.meter.sig_ready.connect(self.meter_ready)
 		self.meter.add_to_carla()
 
 	@pyqtSlot()
@@ -42,7 +42,7 @@ class TestApp(QMainWindow):
 
 	@pyqtSlot(int)
 	def meter_ready(self, plugin_id):
-		logging.debug('Received sig_Ready ')
+		logging.debug('Received sig_ready ')
 		self.close()
 
 	def closeEvent(self, event):

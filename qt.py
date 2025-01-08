@@ -69,23 +69,23 @@ from carla_backend import (
 
 class CarlaQt(_SimpleCarla, QObject):
 
-	sig_PatchbayClientAdded = pyqtSignal(PatchbayClient)
-	sig_PatchbayClientRemoved = pyqtSignal(PatchbayClient)
-	sig_PatchbayPortAdded = pyqtSignal(PatchbayPort)
-	sig_PatchbayPortRemoved = pyqtSignal(PatchbayPort)
-	sig_PluginRemoved = pyqtSignal(QObject)
-	sig_LastPluginRemoved = pyqtSignal()
-	sig_EngineStarted = pyqtSignal(int, int, int, int, float, str)
-	sig_EngineStopped = pyqtSignal()
-	sig_ProcessModeChanged = pyqtSignal(int)
-	sig_TransportModeChanged = pyqtSignal(int, str)
-	sig_BufferSizeChanged = pyqtSignal(int)
-	sig_SampleRateChanged = pyqtSignal(float)
-	sig_CancelableAction = pyqtSignal(int, bool, str)
-	sig_Info = pyqtSignal(str)
-	sig_Error = pyqtSignal(str)
-	sig_Quit = pyqtSignal()
-	sig_ApplicationError = pyqtSignal(str, str, str, int)
+	sig_patchbay_client_added = pyqtSignal(PatchbayClient)
+	sig_patchbay_client_removed = pyqtSignal(PatchbayClient)
+	sig_patchbay_port_added = pyqtSignal(PatchbayPort)
+	sig_patchbay_port_removed = pyqtSignal(PatchbayPort)
+	sig_plugin_removed = pyqtSignal(QObject)
+	sig_last_plugin_removed = pyqtSignal()
+	sig_engine_started = pyqtSignal(int, int, int, int, float, str)
+	sig_engine_stopped = pyqtSignal()
+	sig_process_mode_changed = pyqtSignal(int)
+	sig_transport_mode_changed = pyqtSignal(int, str)
+	sig_buffer_size_changed = pyqtSignal(int)
+	sig_sample_rate_changed = pyqtSignal(float)
+	sig_cancelable_action = pyqtSignal(int, bool, str)
+	sig_info = pyqtSignal(str)
+	sig_error = pyqtSignal(str)
+	sig_quit = pyqtSignal()
+	sig_application_error = pyqtSignal(str, str, str, int)
 
 
 	def __init__(self, client_name):
@@ -212,28 +212,28 @@ class CarlaQt(_SimpleCarla, QObject):
 			if action == ENGINE_CALLBACK_ENGINE_STARTED:
 				self.processMode = value_1
 				self.transportMode = value_2
-				return self.sig_EngineStarted.emit(plugin_id, value_1, value_2, value_3, float_val, string_val)
+				return self.sig_engine_started.emit(plugin_id, value_1, value_2, value_3, float_val, string_val)
 
 			if action == ENGINE_CALLBACK_ENGINE_STOPPED:
-				return self.sig_EngineStopped.emit()
+				return self.sig_engine_stopped.emit()
 
 			if action == ENGINE_CALLBACK_PROCESS_MODE_CHANGED:
 				self.processMode = value_1
-				return self.sig_ProcessModeChanged.emit(value_1)
+				return self.sig_process_mode_changed.emit(value_1)
 
 			if action == ENGINE_CALLBACK_TRANSPORT_MODE_CHANGED:
 				self.transportMode = value_1
 				self.transportExtra = string_val
-				return self.sig_TransportModeChanged.emit(value_1, string_val)
+				return self.sig_transport_mode_changed.emit(value_1, string_val)
 
 			if action == ENGINE_CALLBACK_BUFFER_SIZE_CHANGED:
-				return self.sig_BufferSizeChanged.emit(value_1)
+				return self.sig_buffer_size_changed.emit(value_1)
 
 			if action == ENGINE_CALLBACK_SAMPLE_RATE_CHANGED:
-				return self.sig_SampleRateChanged.emit(float_val)
+				return self.sig_sample_rate_changed.emit(float_val)
 
 			if action == ENGINE_CALLBACK_CANCELABLE_ACTION:
-				return self.sig_CancelableAction.emit(plugin_id, bool(value_1 != 0), string_val)
+				return self.sig_cancelable_action.emit(plugin_id, bool(value_1 != 0), string_val)
 
 			if action == ENGINE_CALLBACK_PROJECT_LOAD_FINISHED:
 				return
@@ -245,13 +245,13 @@ class CarlaQt(_SimpleCarla, QObject):
 				return
 
 			if action == ENGINE_CALLBACK_INFO:
-				return self.sig_Info.emit(string_val)
+				return self.sig_info.emit(string_val)
 
 			if action == ENGINE_CALLBACK_ERROR:
-				return self.sig_Error.emit(string_val)
+				return self.sig_error.emit(string_val)
 
 			if action == ENGINE_CALLBACK_QUIT:
-				return self.sig_Quit.emit()
+				return self.sig_quit.emit()
 
 			logging.warning('Unhandled action %d', action)
 
@@ -259,7 +259,7 @@ class CarlaQt(_SimpleCarla, QObject):
 			print(traceback.format_exc())
 			exc_type, exc_obj, exc_tb = sys.exc_info()
 			fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-			self.sig_ApplicationError.emit(exc_type.__name__, str(e), fname, exc_tb.tb_lineno)
+			self.sig_application_error.emit(exc_type.__name__, str(e), fname, exc_tb.tb_lineno)
 
 	# -----------------------------
 	# Helper functions for callbacks
@@ -267,22 +267,22 @@ class CarlaQt(_SimpleCarla, QObject):
 	# -----------------------------
 
 	def _alert_client_added(self, client):
-		self.sig_PatchbayClientAdded.emit(client)
+		self.sig_patchbay_client_added.emit(client)
 
 	def _alert_client_removed(self, client):
-		self.sig_PatchbayClientRemoved.emit(client)
+		self.sig_patchbay_client_removed.emit(client)
 
 	def _alert_port_added(self, port):
-		self.sig_PatchbayPortAdded.emit(port)
+		self.sig_patchbay_port_added.emit(port)
 
 	def _alert_port_removed(self, port):
-		self.sig_PatchbayPortRemoved.emit(port)
+		self.sig_patchbay_port_removed.emit(port)
 
 	def _alert_plugin_removed(self, plugin):
-		self.sig_PluginRemoved.emit(plugin)
+		self.sig_plugin_removed.emit(plugin)
 
 	def _alert_last_plugin_removed(self):
-		self.sig_LastPluginRemoved.emit()
+		self.sig_last_plugin_removed.emit()
 
 
 
@@ -299,8 +299,8 @@ class QtPlugin(Plugin, QObject):
 		plugin.add_to_carla()
 	"""
 
-	sig_Ready		= pyqtSignal(int)
-	sig_Removed 	= pyqtSignal(int)
+	sig_ready		= pyqtSignal(int)
+	sig_removed 	= pyqtSignal(int)
 
 	def __init__(self, plugin_def=None, saved_state=None):
 		QObject.__init__(self)
@@ -311,14 +311,14 @@ class QtPlugin(Plugin, QObject):
 		Called after post_embed_init() and all ports ready
 		"""
 		logging.debug('%s ready', self)
-		self.sig_Ready.emit(self.plugin_id)
+		self.sig_ready.emit(self.plugin_id)
 
 	def got_removed(self):
 		if self.original_plugin_name in self.moniker_counts:
 			self.moniker_counts[self.original_plugin_name] -= 1
 		else:
 			logging.warning('%s original_plugin_name not in moniker_counts', self)
-		self.sig_Removed.emit(self.plugin_id)
+		self.sig_removed.emit(self.plugin_id)
 
 
 
