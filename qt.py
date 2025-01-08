@@ -310,14 +310,10 @@ class QtPlugin(Plugin, QObject):
 		"""
 		Called after post_embed_init() and all ports ready
 		"""
-		logging.debug('%s ready', self)
+		#logging.debug('%s ready', self)
 		self.sig_ready.emit(self.plugin_id)
 
 	def got_removed(self):
-		if self.original_plugin_name in self.moniker_counts:
-			self.moniker_counts[self.original_plugin_name] -= 1
-		else:
-			logging.warning('%s original_plugin_name not in moniker_counts', self)
 		self.sig_removed.emit(self.plugin_id)
 
 

@@ -6,7 +6,6 @@ import os, sys, threading, time, logging, traceback, qt_extras.autofit
 from numpy import zeros as np_zeros
 from ctypes import byref, cast, c_char_p, c_void_p, POINTER
 from functools import wraps
-from collections import defaultdict
 from pprint import pprint
 
 def carla_paths():
@@ -1260,7 +1259,7 @@ class _SimpleCarla(CarlaHostDLL):
 			return
 		if carla_plugin_name in self._plugin_by_uuid:
 			self._plugins[plugin_id] = self._plugin_by_uuid[carla_plugin_name]
-			logging.debug('Plugin added: %s', self._plugins[plugin_id])
+			#logging.debug('Plugin added: %s', self._plugins[plugin_id])
 			self._plugins[plugin_id].post_embed_init(plugin_id) 		# Set up parameters, etc.
 		else:
 			logging.warning('cb_PluginAdded: Plugin "%s" not found in _plugin_by_uuid when added', carla_plugin_name)
@@ -1604,7 +1603,7 @@ class _SimpleCarla(CarlaHostDLL):
 			raise Exception("Cannot set autoload plugin as it is already used by " + self.__autoload_plugin)
 		self.__autoload_plugin = plugin
 		self.__autoload_filename = filename
-		logging.debug('Autoloading "%s"', filename)
+		#logging.debug('Autoloading "%s"', filename)
 		self.show_custom_ui(plugin.plugin_id, True)
 		self.__autoload_plugin = None
 		self.__autoload_filename = None
@@ -1630,7 +1629,18 @@ class _SimpleCarla(CarlaHostDLL):
 			retval = cast(byref(return_file), POINTER(c_uintptr))
 			return retval.contents.value
 
+	# -------------------------------------------------------------------
+	# Plugin autogenerate moniker helper
 
+	def generate_moniker(self, plugin):
+		monikers = [ existing_plugin.moniker \
+			for existing_plugin in self._plugin_by_uuid.values() \
+			if existing_plugin.original_plugin_name == plugin.original_plugin_name ]
+		idx = 1
+		plugin.moniker = '{} {}'.format(plugin.original_plugin_name, idx)
+		while plugin.moniker in monikers:
+			idx += 1
+			plugin.moniker = '{} {}'.format(plugin.original_plugin_name, idx)
 
 class Carla(_SimpleCarla):
 
@@ -2335,8 +2345,6 @@ class Plugin(PatchbayClient):
 	plugin_def			= None
 	has_user_interface	= False
 
-	moniker_counts		= defaultdict(int)	# For naming multiple plugins with the same original_plugin_name
-
 	_cb_ready			= None
 	_cb_removed			= None
 
@@ -2385,8 +2393,7 @@ class Plugin(PatchbayClient):
 
 		if saved_state is None:
 			self.uuid = uuid()
-			self.moniker_counts[self.original_plugin_name] += 1
-			self.moniker = "{0} {1}".format(self.original_plugin_name, self.moniker_counts[self.original_plugin_name])
+			Carla.instance.generate_moniker(self)
 		else:
 			self.uuid = saved_state["vars"]["uuid"]
 			self.moniker = saved_state["vars"]["moniker"]
@@ -2570,11 +2577,6 @@ class Plugin(PatchbayClient):
 			self, errorMsg)
 
 	def got_removed(self):
-		if self.original_plugin_name in self.moniker_counts:
-			self.moniker_counts[self.original_plugin_name] -= 1
-		else:
-			logging.warning('%s original_plugin_name not in moniker_counts',
-				self)
 		if self._cb_removed is not None:
 			self._cb_removed()
 
