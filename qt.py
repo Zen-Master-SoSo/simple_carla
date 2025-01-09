@@ -68,6 +68,10 @@ from carla_backend import (
 
 
 class CarlaQt(_SimpleCarla, QObject):
+	"""
+	Object-oriented interface to CarlaHostDLL, using Qt signals for event
+	notifications.
+	"""
 
 	sig_patchbay_client_added = pyqtSignal(PatchbayClient)
 	sig_patchbay_client_removed = pyqtSignal(PatchbayClient)
