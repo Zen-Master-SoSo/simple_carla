@@ -107,111 +107,111 @@ class CarlaQt(_SimpleCarla, QObject):
 		try:
 
 			if action == ENGINE_CALLBACK_INLINE_DISPLAY_REDRAW:
-				return self.cb_InlineDisplayRedraw(plugin_id)
+				return self.cb_inline_display_redraw(plugin_id)
 
 			if action == ENGINE_CALLBACK_DEBUG:
-				return self.cb_Debug(plugin_id, value_1, value_2, value_3, float_val, string_val)
+				return self.cb_debug(plugin_id, value_1, value_2, value_3, float_val, string_val)
 
 			if action == ENGINE_CALLBACK_PLUGIN_ADDED:
-				return self.cb_PluginAdded(plugin_id, value_1, string_val)
+				return self.cb_plugin_added(plugin_id, value_1, string_val)
 
 			if action == ENGINE_CALLBACK_PLUGIN_REMOVED:
-				return self.cb_PluginRemoved(plugin_id)
+				return self.cb_plugin_removed(plugin_id)
 
 			if action == ENGINE_CALLBACK_PLUGIN_RENAMED:
-				return self.cb_PluginRenamed(plugin_id, string_val)
+				return self.cb_plugin_renamed(plugin_id, string_val)
 
 			if action == ENGINE_CALLBACK_PLUGIN_UNAVAILABLE:
-				return self.cb_PluginUnavailable(plugin_id, string_val)
+				return self.cb_plugin_unavailable(plugin_id, string_val)
 
 			if action == ENGINE_CALLBACK_PARAMETER_VALUE_CHANGED:
-				return self.cb_ParameterValueChanged(plugin_id, value_1, float_val)
+				return self.cb_parameter_value_changed(plugin_id, value_1, float_val)
 
 			if action == ENGINE_CALLBACK_PARAMETER_DEFAULT_CHANGED:
-				return self.cb_ParameterDefaultChanged(plugin_id, value_1, float_val)
+				return self.cb_parameter_default_changed(plugin_id, value_1, float_val)
 
 			if action == ENGINE_CALLBACK_PARAMETER_MAPPED_CONTROL_INDEX_CHANGED:
-				return self.cb_ParameterMappedControlIndexChanged(plugin_id, value_1, value_2)
+				return self.cb_parameter_mapped_control_index_changed(plugin_id, value_1, value_2)
 
 			if action == ENGINE_CALLBACK_PARAMETER_MAPPED_RANGE_CHANGED:
 				minimum, maximum = (float(v) for v in string_val.split(":", 2))
-				return self.cb_ParameterMappedRangeChanged(plugin_id, value_1, minimum, maximum)
+				return self.cb_parameter_mapped_range_changed(plugin_id, value_1, minimum, maximum)
 
 			if action == ENGINE_CALLBACK_PARAMETER_MIDI_CHANNEL_CHANGED:
-				return self.cb_ParameterMidiChannelChanged(plugin_id, value_1, value_2)
+				return self.cb_parameter_midi_channel_changed(plugin_id, value_1, value_2)
 
 			if action == ENGINE_CALLBACK_PROGRAM_CHANGED:
-				return self.cb_ProgramChanged(plugin_id, value_1)
+				return self.cb_program_changed(plugin_id, value_1)
 
 			if action == ENGINE_CALLBACK_MIDI_PROGRAM_CHANGED:
-				return self.cb_MidiProgramChanged(plugin_id, value_1)
+				return self.cb_midi_program_changed(plugin_id, value_1)
 
 			if action == ENGINE_CALLBACK_OPTION_CHANGED:
-				return self.cb_OptionChanged(plugin_id, value_1, bool(value_2))
+				return self.cb_option_changed(plugin_id, value_1, bool(value_2))
 
 			if action == ENGINE_CALLBACK_UI_STATE_CHANGED:
-				return self.cb_UiStateChanged(plugin_id, value_1)
+				return self.cb_ui_state_changed(plugin_id, value_1)
 
 			if action == ENGINE_CALLBACK_NOTE_ON:
-				return self.cb_NoteOn(plugin_id, value_1, value_2, value_3)
+				return self.cb_note_on(plugin_id, value_1, value_2, value_3)
 
 			if action == ENGINE_CALLBACK_NOTE_OFF:
-				return self.cb_NoteOff(plugin_id, value_1, value_2)
+				return self.cb_note_off(plugin_id, value_1, value_2)
 
 			if action == ENGINE_CALLBACK_UPDATE:
-				return self.cb_Update(plugin_id)
+				return self.cb_update(plugin_id)
 
 			if action == ENGINE_CALLBACK_RELOAD_INFO:
-				return self.cb_ReloadInfo(plugin_id)
+				return self.cb_reload_info(plugin_id)
 
 			if action == ENGINE_CALLBACK_RELOAD_PARAMETERS:
-				return self.cb_ReloadParameters(plugin_id)
+				return self.cb_reload_parameters(plugin_id)
 
 			if action == ENGINE_CALLBACK_RELOAD_PROGRAMS:
-				return self.cb_ReloadPrograms(plugin_id)
+				return self.cb_reload_programs(plugin_id)
 
 			if action == ENGINE_CALLBACK_RELOAD_ALL:
-				return self.cb_ReloadAll(plugin_id)
+				return self.cb_reload_all(plugin_id)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_CLIENT_ADDED:
-				return self.cb_PatchbayClientAdded(plugin_id, value_1, value_2, string_val)
+				return self.cb_patchbay_client_added(plugin_id, value_1, value_2, string_val)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_CLIENT_REMOVED:
-				return self.cb_PatchbayClientRemoved(plugin_id)
+				return self.cb_patchbay_client_removed(plugin_id)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_CLIENT_RENAMED:
-				return self.cb_PatchbayClientRenamed(plugin_id, string_val)
+				return self.cb_patchbay_client_renamed(plugin_id, string_val)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_CLIENT_DATA_CHANGED:
-				return self.cb_PatchbayClientDataChanged(plugin_id, value_1, value_2)
+				return self.cb_patchbay_client_data_changed(plugin_id, value_1, value_2)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_CLIENT_POSITION_CHANGED:
-				return self.cb_PatchbayClientPositionChanged(plugin_id, value_1, value_2, value_3, int(round(float_val)))
+				return self.cb_patchbay_client_position_changed(plugin_id, value_1, value_2, value_3, int(round(float_val)))
 
 			if action == ENGINE_CALLBACK_PATCHBAY_PORT_ADDED:
-				return self.cb_PatchbayPortAdded(plugin_id, value_1, value_2, value_3, string_val)
+				return self.cb_patchbay_port_added(plugin_id, value_1, value_2, value_3, string_val)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_PORT_REMOVED:
-				return self.cb_PatchbayPortRemoved(plugin_id, value_1)
+				return self.cb_patchbay_port_removed(plugin_id, value_1)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_PORT_CHANGED:
-				return self.cb_PatchbayPortChanged(plugin_id, value_1, value_2, value_3, string_val)
+				return self.cb_patchbay_port_changed(plugin_id, value_1, value_2, value_3, string_val)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_PORT_GROUP_ADDED:
-				return self.cb_PatchbayPortGroupAdded(plugin_id, value_1, value_2, string_val)
+				return self.cb_patchbay_port_group_added(plugin_id, value_1, value_2, string_val)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_PORT_GROUP_REMOVED:
-				return self.cb_PatchbayPortGroupRemoved(plugin_id, value_1)
+				return self.cb_patchbay_port_group_removed(plugin_id, value_1)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_PORT_GROUP_CHANGED:
-				return self.cb_PatchbayPortGroupChanged(plugin_id, value_1, value_2, string_val)
+				return self.cb_patchbay_port_group_changed(plugin_id, value_1, value_2, string_val)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_CONNECTION_ADDED:
 				client_out_id, port_out_id, client_in_id, port_in_id = [int(i) for i in string_val.split(":")]
-				return self.cb_PatchbayConnectionAdded(plugin_id, client_out_id, port_out_id, client_in_id, port_in_id)
+				return self.cb_patchbay_connection_added(plugin_id, client_out_id, port_out_id, client_in_id, port_in_id)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_CONNECTION_REMOVED:
-				return self.cb_PatchbayConnectionRemoved(plugin_id, value_1, value_2)
+				return self.cb_patchbay_connection_removed(plugin_id, value_1, value_2)
 
 			if action == ENGINE_CALLBACK_ENGINE_STARTED:
 				self.processMode = value_1
@@ -301,6 +301,7 @@ class QtPlugin(Plugin, QObject):
 		plugin = QtPlugin(plugin_def)
 		plugin.sig_ready.connect(self.plugin_ready)
 		plugin.add_to_carla()
+
 	"""
 
 	sig_ready		= pyqtSignal(int)
@@ -312,9 +313,10 @@ class QtPlugin(Plugin, QObject):
 
 	def ready(self):
 		"""
-		Called after post_embed_init() and all ports ready
+		Called after post_embed_init() and all ports ready.
+		You can check the state of this plugin using the "Plugin.is_ready" property.
 		"""
-		#logging.debug('%s ready', self)
+		logging.debug('%s ready', self)
 		self.sig_ready.emit(self.plugin_id)
 
 	def got_removed(self):

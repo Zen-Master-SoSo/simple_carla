@@ -29,7 +29,6 @@ if __name__ == "__main__":
 	import argparse, logging, sys
 	from PyQt5.QtWidgets import QApplication
 	from PyQt5.QtCore import QTimer
-	from musecbox.locals import SETTINGS, STYLES
 	from pprint import pprint
 	p = argparse.ArgumentParser()
 	p.epilog = """
@@ -44,9 +43,6 @@ if __name__ == "__main__":
 		format = "[%(filename)24s:%(lineno)-4d] %(levelname)-8s %(message)s"
 	)
 	app = QApplication([])
-	style = SETTINGS.value("style", "system")
-	with open(STYLES[style], 'r') as cssfile:
-		QApplication.instance().setStyleSheet(cssfile.read())
 	window = TestWindow(options)
 	window.show()
 	app.exec()

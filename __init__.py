@@ -2,12 +2,14 @@
 #
 #  Copyright 2024 liyang <liyang@veronica>
 #
-import os, sys, threading, time, logging, traceback, qt_extras.autofit
-from numpy import zeros as np_zeros
+import os, sys, threading, time, logging, traceback
 from ctypes import byref, cast, c_char_p, c_void_p, POINTER
 from functools import wraps
 from struct import pack
 from pprint import pprint
+from numpy import zeros as np_zeros
+import qt_extras.autofit
+
 
 def carla_paths():
 	"""
@@ -239,15 +241,23 @@ def polite_function(func):
 		return retval
 	return wrapper
 
+# -------------------------------------------------------------------
+# Utility function used when saving plugin state
 
-__UUID = 0
-def uuid():
+def encode_properties(thing, keys = None):
 	"""
-	Helper function which returns a unique string for plugin identification
+	Returns a dictionary which may be used for encoding an object's state, used by
+	Plugin.encode_saved_state() function.
 	"""
-	global __UUID
-	__UUID += 1
-	return '%03d' % __UUID
+	pe = {}
+	for key in dir(thing):
+		if key[0] != '_' and (keys is None or key in keys):
+			val = getattr(thing, key)
+			if hasattr(val, "encode_saved_state"):
+				val = val.encode_saved_state()
+			pe[key] = val
+	return pe
+
 
 # -------------------------------------------------------------------
 # Carla host wrapper
@@ -333,6 +343,7 @@ class _SimpleCarla(CarlaHostDLL):
 		self._sys_clients		= {}	# SystemPatchbayClient, indexed on "client_name"
 		self._connections		= {}	# PatchbayConnection, indexed on Carla -generated "connection_id"
 		self._plugin_by_uuid	= {}	# Plugin, indexed on "uuid", used for identifying plugin during instantiation
+		self._uuid				= 0		# Current "uuid", incremented sequentially
 
 	# -------------------------------------------------------------------
 	# Save state (pathcbay connections)
@@ -347,7 +358,7 @@ class _SimpleCarla(CarlaHostDLL):
 	# -------------------------------------------------------------------
 	# Engine control / idle loop
 
-	def engine_init(self, driver_name):
+	def engine_init(self, driver_name = 'JACK'):
 		"""
 		Initialize the engine.
 		Make sure to call carla_engine_idle() at regular intervals afterwards.
@@ -377,7 +388,7 @@ class _SimpleCarla(CarlaHostDLL):
 		global _engine_exclusive
 		next_run_time = time.time()
 		while self._run_idle_loop:
-			with _engine_exclusive():
+			with _engine_exclusive:
 				CarlaHostDLL.engine_idle(self)
 			next_run_time += self.idle_interval
 			sleep_time = next_run_time - time.time()
@@ -829,7 +840,7 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		Enable a plugin's option.
 		plugin_id:		Plugin
-		option	:		An option from PluginOptions
+		option:			An option from PluginOptions
 		state:			New enabled state
 		"""
 		self.lib.carla_set_option(self.handle, plugin_id, option, state)
@@ -1265,7 +1276,7 @@ class _SimpleCarla(CarlaHostDLL):
 	# -------------------------------------------------------------------
 	# Plugin-related engine callback functions
 
-	def cb_PluginAdded(self, plugin_id, plugin_type, carla_plugin_name):
+	def cb_plugin_added(self, plugin_id, plugin_type, carla_plugin_name):
 		"""
 		After Carla adds a plugin, it signals this with an assigned plugin_id. This
 		function uses the uuid given to the Plugin by this class to retrieve the
@@ -1273,7 +1284,7 @@ class _SimpleCarla(CarlaHostDLL):
 		the "_plugins" dict.
 		"""
 		if plugin_id in self._plugins:
-			logging.warning('cb_PluginAdded: Cannot add plugin %s', plugin_id)
+			logging.warning('cb_plugin_added: Cannot add plugin %s', plugin_id)
 			logging.warning('"%s" - plugin %s already in _plugins"', carla_plugin_name, self._plugins[plugin_id])
 			return
 		if carla_plugin_name in self._plugin_by_uuid:
@@ -1281,15 +1292,15 @@ class _SimpleCarla(CarlaHostDLL):
 			#logging.debug('Plugin added: %s', self._plugins[plugin_id])
 			self._plugins[plugin_id].post_embed_init(plugin_id) 		# Set up parameters, etc.
 		else:
-			logging.warning('cb_PluginAdded: Plugin "%s" not found in _plugin_by_uuid when added', carla_plugin_name)
+			logging.warning('cb_plugin_added: Plugin "%s" not found in _plugin_by_uuid when added', carla_plugin_name)
 
-	def cb_PluginRemoved(self, plugin_id):
+	def cb_plugin_removed(self, plugin_id):
 		if plugin_id in self._plugins:
 			plugin = self._plugins[plugin_id]
 			if plugin.uuid in self._plugin_by_uuid:
 				del self._plugin_by_uuid[plugin.uuid]
 			else:
-				logging.warning('cb_PluginRemoved: "%s" uuid %s not in self._plugin_by_uuid', plugin, plugin.uuid)
+				logging.warning('cb_plugin_removed: "%s" uuid %s not in self._plugin_by_uuid', plugin, plugin.uuid)
 			self._alert_plugin_removed(plugin)
 			# Renumber plugins per Carla plugin_id conventions:
 			for i in range(plugin_id, len(self._plugins) - 1):
@@ -1300,75 +1311,100 @@ class _SimpleCarla(CarlaHostDLL):
 				self._alert_last_plugin_removed()
 			plugin.got_removed()
 		else:
-			logging.warning('cb_PluginRemoved: Plugin removed (%d) not in _plugins', plugin_id)
+			logging.warning('cb_plugin_removed: Plugin removed (%d) not in _plugins', plugin_id)
 
-	def cb_PluginRenamed(self, plugin_id, new_name):
+	def cb_plugin_renamed(self, plugin_id, new_name):
 		self._plugins[plugin_id].plugin_renamed(new_name)
 
-	def cb_PluginUnavailable(self, plugin_id, errorMsg):
+	def cb_plugin_unavailable(self, plugin_id, errorMsg):
 		self._plugins[plugin_id].plugin_unavailable(error_msg)
 
-	def cb_ParameterValueChanged(self, plugin_id, index, value):
+	def cb_parameter_value_changed(self, plugin_id, index, value):
 		if plugin_id in self._plugins:
-			self._plugins[plugin_id].parameter_value_changed(index, value)
+			plugin = self._plugins[plugin_id]
+			if index == PARAMETER_NULL:
+				return
+			elif index == PARAMETER_ACTIVE:
+				plugin.active = value != 0
+			elif index == PARAMETER_DRYWET:
+				plugin.dry_wet = value
+			elif index == PARAMETER_VOLUME:
+				plugin.volume = value
+			elif index == PARAMETER_BALANCE_LEFT:
+				plugin.balance_left = value
+			elif index == PARAMETER_BALANCE_RIGHT:
+				plugin.balance_right = value
+			elif index == PARAMETER_PANNING:
+				plugin.panning = value
+			elif index == PARAMETER_CTRL_CHANNEL:
+				plugin.ctrl_channel = value
+			elif index == PARAMETER_MAX:
+				return
+			else:
+				if index in plugin.parameters:
+					parameter = plugin.parameters[index]
+					parameter.internal_value_changed(value)
+					plugin.parameter_internal_value_changed(parameter, value)
+				else:
+					logging.error('Parameter index not in plugin.parameters')
 		else:
-			logging.debug('cb_ParameterValueChanged: plugin_id %s not in self._plugins', plugin_id)
+			logging.debug('cb_parameter_value_changed: plugin_id %s not in self._plugins', plugin_id)
 
-	def cb_ParameterDefaultChanged(self, plugin_id, index, value):
+	def cb_parameter_default_changed(self, plugin_id, index, value):
 		self._plugins[plugin_id].parameter_default_changed(index, value)
 
-	def cb_ParameterMappedControlIndexChanged(self, plugin_id, index, ctrl):
+	def cb_parameter_mapped_control_index_changed(self, plugin_id, index, ctrl):
 		self._plugins[plugin_id].parameter_mapped_control_index_changed(index, ctrl)
 
-	def cb_ParameterMappedRangeChanged(self, plugin_id, index, minimum, maximum):
+	def cb_parameter_mapped_range_changed(self, plugin_id, index, minimum, maximum):
 		self._plugins[plugin_id].parameter_mapped_range_changed(index, minimum, maximum)
 
-	def cb_ParameterMidiChannelChanged(self, plugin_id, index, channel):
+	def cb_parameter_midi_channel_changed(self, plugin_id, index, channel):
 		self._plugins[plugin_id].parameter_midi_channel_changed(index, channel)
 
-	def cb_ProgramChanged(self, plugin_id, index):
+	def cb_program_changed(self, plugin_id, index):
 		self._plugins[plugin_id].program_changed(index)
 
-	def cb_MidiProgramChanged(self, plugin_id, index):
+	def cb_midi_program_changed(self, plugin_id, index):
 		self._plugins[plugin_id].midi_program_changed(index)
 
-	def cb_OptionChanged(self, plugin_id, option, state):
+	def cb_option_changed(self, plugin_id, option, state):
 		self._plugins[plugin_id].option_changed(option, state)
 
-	def cb_UiStateChanged(self, plugin_id, state):
+	def cb_ui_state_changed(self, plugin_id, state):
 		self._plugins[plugin_id].ui_state_changed(state)
 
-	def cb_NoteOn(self, plugin_id, channel, note, velocity):
+	def cb_note_on(self, plugin_id, channel, note, velocity):
 		self._plugins[plugin_id].note_on(channel, note, velocity)
 
-	def cb_NoteOff(self, plugin_id, channel, note):
+	def cb_note_off(self, plugin_id, channel, note):
 		self._plugins[plugin_id].note_off(channel, note)
 
-	def cb_Update(self, plugin_id):
+	def cb_update(self, plugin_id):
 		self._plugins[plugin_id].update()
 
-	def cb_ReloadInfo(self, plugin_id):
+	def cb_reload_info(self, plugin_id):
 		self._plugins[plugin_id].reload_info()
 
-	def cb_ReloadParameters(self, plugin_id):
+	def cb_reload_parameters(self, plugin_id):
 		self._plugins[plugin_id].reload_parameters()
 
-	def cb_ReloadPrograms(self, plugin_id):
+	def cb_reload_programs(self, plugin_id):
 		self._plugins[plugin_id].reload_programs()
 
-	def cb_ReloadAll(self, plugin_id):
+	def cb_reload_all(self, plugin_id):
 		self._plugins[plugin_id].reload_all(self)
 
-	def cb_InlineDisplayRedraw(self, plugin_id):
+	def cb_inline_display_redraw(self, plugin_id):
 		self._plugins[plugin_id].inline_display_redraw()
 
-	def cb_Debug(self, plugin_id, value1, value2, value3, valuef, valueStr):
+	def cb_debug(self, plugin_id, value1, value2, value3, valuef, valueStr):
 		self._plugins[plugin_id].debug(value1, value2, value3, valuef, value_str)
 
 	# -------------------------------------------------------------------
 	# Patchbay-related engine callback functions
 
-	def cb_PatchbayClientAdded(self, client_id, client_icon, plugin_id, client_name):
+	def cb_patchbay_client_added(self, client_id, client_icon, plugin_id, client_name):
 		"""
 		After Carla adds a plugin, it creates patchbay clients and patchbay ports for
 		each plugin. This function uses the "client_name" to identity the plugin, and
@@ -1381,7 +1417,7 @@ class _SimpleCarla(CarlaHostDLL):
 		use "on_client_added".
 		"""
 		if client_id in self._clients:
-			return logging.warning('cb_PatchbayClientAdded: "%s" already in _clients as "%s"',
+			return logging.warning('cb_patchbay_client_added: "%s" already in _clients as "%s"',
 				self._clients[client_id], client_name)
 		plugin_uuid = client_name.rsplit("/")[-1]
 		if plugin_uuid in self._plugin_by_uuid:
@@ -1393,8 +1429,9 @@ class _SimpleCarla(CarlaHostDLL):
 			self._clients[client_id] = SystemPatchbayClient(client_id, client_name)
 			self._sys_clients[client_name] = self._clients[client_id]
 		self._alert_client_added(self._clients[client_id])
+		return None
 
-	def cb_PatchbayClientRemoved(self, client_id):
+	def cb_patchbay_client_removed(self, client_id):
 		"""
 		Called when a client, either a managed plugin or a "SystemClient", is removed.
 
@@ -1409,22 +1446,21 @@ class _SimpleCarla(CarlaHostDLL):
 			client.client_removed()
 			if client.client_name in self._sys_clients:
 				del self._sys_clients[client.client_name]
-				logging.debug('cb_PatchbayClientRemoved: Client "%s" was removed from _sys_clients', client)
+				logging.debug('cb_patchbay_client_removed: Client "%s" was removed from _sys_clients', client)
 			elif client.uuid in self._plugin_by_uuid:
 				# You would think it be like this, but it don't
 				# del self._plugin_by_uuid[client.uuid]
-				logging.debug('cb_PatchbayClientRemoved: Plugin %s with uuid %s was removed from _plugin_by_uuid - SKIPPING',
+				logging.debug('cb_patchbay_client_removed: Plugin %s with uuid %s was removed from _plugin_by_uuid - SKIPPING',
 					client, client.uuid)
-				pass
 			else:
-				logging.debug('cb_PatchbayClientRemoved: Client to remove (%s) not in _sys_clients or _plugin_by_uuid', client)
+				logging.debug('cb_patchbay_client_removed: Client to remove (%s) not in _sys_clients or _plugin_by_uuid', client)
 			del self._clients[client_id]
-			logging.debug('cb_PatchbayClientRemoved: Client "%s" removed from _clients', client)
+			logging.debug('cb_patchbay_client_removed: Client "%s" removed from _clients', client)
 		else:
-			logging.warning('cb_PatchbayClientRemoved: Client removed (%s) not in ._clients', client_id)
+			logging.warning('cb_patchbay_client_removed: Client removed (%s) not in ._clients', client_id)
 
-	def cb_PatchbayClientRenamed(self, client_id, new_client_name):
-		logging.debug('cb_PatchbayClientRenamed: "%s" new name: "%s"',
+	def cb_patchbay_client_renamed(self, client_id, new_client_name):
+		logging.debug('cb_patchbay_client_renamed: "%s" new name: "%s"',
 			self._clients[client_id], new_client_name)
 		client = self._clients[client_id]
 		if client.client_name in self._sys_clients:
@@ -1432,43 +1468,43 @@ class _SimpleCarla(CarlaHostDLL):
 			self._sys_clients[new_client_name] = client
 		self._clients[client_id].client_renamed(new_client_name)
 
-	def cb_PatchbayClientDataChanged(self, client_id, client_icon, plugin_id):
-		logging.debug('cb_PatchbayClientDataChanged: %s', self._clients[client_id])
+	def cb_patchbay_client_data_changed(self, client_id, client_icon, plugin_id):
+		logging.debug('cb_patchbay_client_data_changed: %s', self._clients[client_id])
 
-	def cb_PatchbayClientPositionChanged(self, client_id, x1, y1, x2, y2):
-		logging.debug('cb_PatchbayClientPositionChanged: %s', self._clients[client_id])
+	def cb_patchbay_client_position_changed(self, client_id, x1, y1, x2, y2):
+		logging.debug('cb_patchbay_client_position_changed: %s', self._clients[client_id])
 
-	def cb_PatchbayPortAdded(self, client_id, port_id, port_flags, group_id, port_name):
+	def cb_patchbay_port_added(self, client_id, port_id, port_flags, group_id, port_name):
 		if client_id in self._clients:
 			self._clients[client_id].port_added(port_id, port_flags, group_id, port_name)
 			self._alert_port_added(self._clients[client_id].ports[port_id])
 		else:
-			logging.warning('cb_PatchbayPortAdded: client %s not in _clients', client_id)
+			logging.warning('cb_patchbay_port_added: client %s not in _clients', client_id)
 
-	def cb_PatchbayPortRemoved(self, client_id, port_id):
+	def cb_patchbay_port_removed(self, client_id, port_id):
 		if client_id in self._clients:
 			self._alert_port_removed(self._clients[client_id].ports[port_id])
 			self._clients[client_id].port_removed(port_id)
 		else:
-			logging.warning('cb_PatchbayPortRemoved: client %s not in _clients', client_id)
+			logging.warning('cb_patchbay_port_removed: client %s not in _clients', client_id)
 
-	def cb_PatchbayPortChanged(self, client_id, port_id, port_flags, group_id, new_port_name):
-		logging.debug('cb_PatchbayPortChanged: client_id %s port_id %s group_id %s new_port_name %s',
+	def cb_patchbay_port_changed(self, client_id, port_id, port_flags, group_id, new_port_name):
+		logging.debug('cb_patchbay_port_changed: client_id %s port_id %s group_id %s new_port_name %s',
 			client_id, port_id, group_id, new_port_name)
 
-	def cb_PatchbayPortGroupAdded(self, client_id, port_id, group_id, new_port_name):
-		logging.debug('cb_PatchbayPortGroupAdded: groupId %s port_id %s group_id %s new_port_name %s',
+	def cb_patchbay_port_group_added(self, client_id, port_id, group_id, new_port_name):
+		logging.debug('cb_patchbay_port_group_added: groupId %s port_id %s group_id %s new_port_name %s',
 			groupId, port_id, group_id, new_port_name)
 
-	def cb_PatchbayPortGroupRemoved(self, groupId, port_id):
-		logging.debug('cb_PatchbayPortGroupRemoved: groupId %s port_id %s',
+	def cb_patchbay_port_group_removed(self, groupId, port_id):
+		logging.debug('cb_patchbay_port_group_removed: groupId %s port_id %s',
 			groupId, port_id)
 
-	def cb_PatchbayPortGroupChanged(self, groupId, port_id, group_id, new_port_name):
-		logging.debug('cb_PatchbayPortGroupChanged: groupId %s port_id %s group_id %s new_port_name %s',
+	def cb_patchbay_port_group_changed(self, groupId, port_id, group_id, new_port_name):
+		logging.debug('cb_patchbay_port_group_changed: groupId %s port_id %s group_id %s new_port_name %s',
 			groupId, port_id, group_id, new_port_name)
 
-	def cb_PatchbayConnectionAdded(self, connection_id, client_out_id, port_out_id, client_in_id, port_in_id):
+	def cb_patchbay_connection_added(self, connection_id, client_out_id, port_out_id, client_in_id, port_in_id):
 		"""
 		Handles patchbay changes. Passes notification of change to the clients.
 		"""
@@ -1481,7 +1517,7 @@ class _SimpleCarla(CarlaHostDLL):
 		out_port.connection_added(connection)
 		in_port.connection_added(connection)
 
-	def cb_PatchbayConnectionRemoved(self, connection_id, zero_1, zero_2):
+	def cb_patchbay_connection_removed(self, connection_id, zero_1, zero_2):
 		"""
 		Handles patchbay changes. Passes notification of change to the clients.
 		"""
@@ -1493,7 +1529,7 @@ class _SimpleCarla(CarlaHostDLL):
 			self._clients[connection.in_port.client_id].input_connection_removed(connection)
 			del self._connections[connection_id]
 		else:
-			logging.warning('cb_PatchbayConnectionRemoved: Connection %s not in ._connections',
+			logging.warning('cb_patchbay_connection_removed: Connection %s not in ._connections',
 				connection_id)
 
 	# ================================================================================
@@ -1711,11 +1747,21 @@ class _SimpleCarla(CarlaHostDLL):
 			return_file = c_char_p(ret.encode("utf-8"))
 			retval = cast(byref(return_file), POINTER(c_uintptr))
 			return retval.contents.value
+		return None
 
 	# -------------------------------------------------------------------
-	# Plugin autogenerate moniker helper
+	# Plugin autogenerate uuid / moniker helper
 
-	def generate_moniker(self, plugin):
+	def provide_identity(self, plugin):
+		"""
+		Helper function which generates a unique "uuid" string for internal plugin
+		identification, and a unique "moniker" for human-readable identification.
+		"""
+		self._uuid += 1
+		plugin.uuid = '%03d' % self._uuid
+		while plugin.uuid in self._plugin_by_uuid:
+			self._uuid += 1
+			plugin.uuid = '%03d' % self._uuid
 		monikers = [ existing_plugin.moniker \
 			for existing_plugin in self._plugin_by_uuid.values() \
 			if existing_plugin.original_plugin_name == plugin.original_plugin_name ]
@@ -1804,7 +1850,7 @@ class Carla(_SimpleCarla):
 	def on_quit(self, callback):
 		self._cb_quit = callback
 
-	def on_applicatione_rror(self, callback):
+	def on_application_error(self, callback):
 		self._cb_application_error = callback
 
 	# -------------------------------------------------------------------
@@ -1818,111 +1864,111 @@ class Carla(_SimpleCarla):
 		try:
 
 			if action == ENGINE_CALLBACK_INLINE_DISPLAY_REDRAW:
-				return self.cb_InlineDisplayRedraw(plugin_id)
+				return self.cb_inline_display_redraw(plugin_id)
 
 			if action == ENGINE_CALLBACK_DEBUG:
-				return self.cb_Debug(plugin_id, value_1, value_2, value_3, float_val, string_val)
+				return self.cb_debug(plugin_id, value_1, value_2, value_3, float_val, string_val)
 
 			if action == ENGINE_CALLBACK_PLUGIN_ADDED:
-				return self.cb_PluginAdded(plugin_id, value_1, string_val)
+				return self.cb_plugin_added(plugin_id, value_1, string_val)
 
 			if action == ENGINE_CALLBACK_PLUGIN_REMOVED:
-				return self.cb_PluginRemoved(plugin_id)
+				return self.cb_plugin_removed(plugin_id)
 
 			if action == ENGINE_CALLBACK_PLUGIN_RENAMED:
-				return self.cb_PluginRenamed(plugin_id, string_val)
+				return self.cb_plugin_renamed(plugin_id, string_val)
 
 			if action == ENGINE_CALLBACK_PLUGIN_UNAVAILABLE:
-				return self.cb_PluginUnavailable(plugin_id, string_val)
+				return self.cb_plugin_unavailable(plugin_id, string_val)
 
 			if action == ENGINE_CALLBACK_PARAMETER_VALUE_CHANGED:
-				return self.cb_ParameterValueChanged(plugin_id, value_1, float_val)
+				return self.cb_parameter_value_changed(plugin_id, value_1, float_val)
 
 			if action == ENGINE_CALLBACK_PARAMETER_DEFAULT_CHANGED:
-				return self.cb_ParameterDefaultChanged(plugin_id, value_1, float_val)
+				return self.cb_parameter_default_changed(plugin_id, value_1, float_val)
 
 			if action == ENGINE_CALLBACK_PARAMETER_MAPPED_CONTROL_INDEX_CHANGED:
-				return self.cb_ParameterMappedControlIndexChanged(plugin_id, value_1, value_2)
+				return self.cb_parameter_mapped_control_index_changed(plugin_id, value_1, value_2)
 
 			if action == ENGINE_CALLBACK_PARAMETER_MAPPED_RANGE_CHANGED:
 				minimum, maximum = (float(v) for v in string_val.split(":", 2))
-				return self.cb_ParameterMappedRangeChanged(plugin_id, value_1, minimum, maximum)
+				return self.cb_parameter_mapped_range_changed(plugin_id, value_1, minimum, maximum)
 
 			if action == ENGINE_CALLBACK_PARAMETER_MIDI_CHANNEL_CHANGED:
-				return self.cb_ParameterMidiChannelChanged(plugin_id, value_1, value_2)
+				return self.cb_parameter_midi_channel_changed(plugin_id, value_1, value_2)
 
 			if action == ENGINE_CALLBACK_PROGRAM_CHANGED:
-				return self.cb_ProgramChanged(plugin_id, value_1)
+				return self.cb_program_changed(plugin_id, value_1)
 
 			if action == ENGINE_CALLBACK_MIDI_PROGRAM_CHANGED:
-				return self.cb_MidiProgramChanged(plugin_id, value_1)
+				return self.cb_midi_program_changed(plugin_id, value_1)
 
 			if action == ENGINE_CALLBACK_OPTION_CHANGED:
-				return self.cb_OptionChanged(plugin_id, value_1, bool(value_2))
+				return self.cb_option_changed(plugin_id, value_1, bool(value_2))
 
 			if action == ENGINE_CALLBACK_UI_STATE_CHANGED:
-				return self.cb_UiStateChanged(plugin_id, value_1)
+				return self.cb_ui_state_changed(plugin_id, value_1)
 
 			if action == ENGINE_CALLBACK_NOTE_ON:
-				return self.cb_NoteOn(plugin_id, value_1, value_2, value_3)
+				return self.cb_note_on(plugin_id, value_1, value_2, value_3)
 
 			if action == ENGINE_CALLBACK_NOTE_OFF:
-				return self.cb_NoteOff(plugin_id, value_1, value_2)
+				return self.cb_note_off(plugin_id, value_1, value_2)
 
 			if action == ENGINE_CALLBACK_UPDATE:
-				return self.cb_Update(plugin_id)
+				return self.cb_update(plugin_id)
 
 			if action == ENGINE_CALLBACK_RELOAD_INFO:
-				return self.cb_ReloadInfo(plugin_id)
+				return self.cb_reload_info(plugin_id)
 
 			if action == ENGINE_CALLBACK_RELOAD_PARAMETERS:
-				return self.cb_ReloadParameters(plugin_id)
+				return self.cb_reload_parameters(plugin_id)
 
 			if action == ENGINE_CALLBACK_RELOAD_PROGRAMS:
-				return self.cb_ReloadPrograms(plugin_id)
+				return self.cb_reload_programs(plugin_id)
 
 			if action == ENGINE_CALLBACK_RELOAD_ALL:
-				return self.cb_ReloadAll(plugin_id)
+				return self.cb_reload_all(plugin_id)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_CLIENT_ADDED:
-				return self.cb_PatchbayClientAdded(plugin_id, value_1, value_2, string_val)
+				return self.cb_patchbay_client_added(plugin_id, value_1, value_2, string_val)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_CLIENT_REMOVED:
-				return self.cb_PatchbayClientRemoved(plugin_id)
+				return self.cb_patchbay_client_removed(plugin_id)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_CLIENT_RENAMED:
-				return self.cb_PatchbayClientRenamed(plugin_id, string_val)
+				return self.cb_patchbay_client_renamed(plugin_id, string_val)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_CLIENT_DATA_CHANGED:
-				return self.cb_PatchbayClientDataChanged(plugin_id, value_1, value_2)
+				return self.cb_patchbay_client_data_changed(plugin_id, value_1, value_2)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_CLIENT_POSITION_CHANGED:
-				return self.cb_PatchbayClientPositionChanged(plugin_id, value_1, value_2, value_3, int(round(float_val)))
+				return self.cb_patchbay_client_position_changed(plugin_id, value_1, value_2, value_3, int(round(float_val)))
 
 			if action == ENGINE_CALLBACK_PATCHBAY_PORT_ADDED:
-				return self.cb_PatchbayPortAdded(plugin_id, value_1, value_2, value_3, string_val)
+				return self.cb_patchbay_port_added(plugin_id, value_1, value_2, value_3, string_val)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_PORT_REMOVED:
-				return self.cb_PatchbayPortRemoved(plugin_id, value_1)
+				return self.cb_patchbay_port_removed(plugin_id, value_1)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_PORT_CHANGED:
-				return self.cb_PatchbayPortChanged(plugin_id, value_1, value_2, value_3, string_val)
+				return self.cb_patchbay_port_changed(plugin_id, value_1, value_2, value_3, string_val)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_PORT_GROUP_ADDED:
-				return self.cb_PatchbayPortGroupAdded(plugin_id, value_1, value_2, string_val)
+				return self.cb_patchbay_port_group_added(plugin_id, value_1, value_2, string_val)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_PORT_GROUP_REMOVED:
-				return self.cb_PatchbayPortGroupRemoved(plugin_id, value_1)
+				return self.cb_patchbay_port_group_removed(plugin_id, value_1)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_PORT_GROUP_CHANGED:
-				return self.cb_PatchbayPortGroupChanged(plugin_id, value_1, value_2, string_val)
+				return self.cb_patchbay_port_group_changed(plugin_id, value_1, value_2, string_val)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_CONNECTION_ADDED:
 				client_out_id, port_out_id, client_in_id, port_in_id = [int(i) for i in string_val.split(":")]
-				return self.cb_PatchbayConnectionAdded(plugin_id, client_out_id, port_out_id, client_in_id, port_in_id)
+				return self.cb_patchbay_connection_added(plugin_id, client_out_id, port_out_id, client_in_id, port_in_id)
 
 			if action == ENGINE_CALLBACK_PATCHBAY_CONNECTION_REMOVED:
-				return self.cb_PatchbayConnectionRemoved(plugin_id, value_1, value_2)
+				return self.cb_patchbay_connection_removed(plugin_id, value_1, value_2)
 
 			if action == ENGINE_CALLBACK_ENGINE_STARTED:
 				self.processMode = value_1
@@ -1967,13 +2013,13 @@ class Carla(_SimpleCarla):
 					else self._cb_cancelable_action(plugin_id, bool(value_1 != 0), string_val)
 
 			if action == ENGINE_CALLBACK_PROJECT_LOAD_FINISHED:
-				return
+				return None
 
 			if action == ENGINE_CALLBACK_NSM:
-				return
+				return None
 
 			if action == ENGINE_CALLBACK_IDLE:
-				return
+				return None
 
 			if action == ENGINE_CALLBACK_INFO:
 				return None \
@@ -1996,6 +2042,8 @@ class Carla(_SimpleCarla):
 			print(traceback.format_exc())
 			if self._cb_application_error is not None:
 				self._cb_application_error(exc_type.__name__, str(e), fname, exc_tb.tb_lineno)
+
+		return None
 
 	# -------------------------------------------------------------------
 	# Helper functions for callbacks
@@ -2073,14 +2121,12 @@ class PatchbayClient:
 		Called from the Carla host, this function gives us a way to
 		efficiently update the GUI for this plugin, if necessary.
 		"""
-		pass
 
 	def output_connection_removed(self, connection):
 		"""
 		Called from the Carla host, this function gives us a way to
 		efficiently update the GUI for this plugin, if necessary.
 		"""
-		pass
 
 	# -------------------------------------------------------------------
 	# Methods which initiate patchbay changes
@@ -2197,6 +2243,7 @@ class PatchbayClient:
 		for port in self.ports.values():
 			if port.is_midi and port.is_input:
 				return port
+		return None
 
 	def named_port(self, port_name):
 		"""
@@ -2205,6 +2252,7 @@ class PatchbayClient:
 		for port in self.ports.values():
 			if port.port_name == port_name:
 				return port
+		return None
 
 	def input_clients(self):
 		"""
@@ -2461,7 +2509,7 @@ class Plugin(PatchbayClient):
 		self.moniker				= None
 		self.initialized			= False
 		self.ports_ready			= False
-		self.ready_to_run			= False
+		self.is_ready			= False
 		self.can_drywet				= False
 		self.can_volume				= False
 		self.can_balance			= False
@@ -2480,8 +2528,7 @@ class Plugin(PatchbayClient):
 		self._midi_notes			= np_zeros((16, 128), dtype=bool)	# array for determining whether midi active.
 
 		if saved_state is None:
-			self.uuid = uuid()
-			Carla.instance.generate_moniker(self)
+			Carla.instance.provide_identity(self)
 		else:
 			self.uuid = saved_state["vars"]["uuid"]
 			self.moniker = saved_state["vars"]["moniker"]
@@ -2566,55 +2613,84 @@ class Plugin(PatchbayClient):
 		"""
 		Called at the end of post_embed_init(); override in order to execute other
 		initialization code before declaring this plugin ready.
+
+		Plugin ports may not be ready when this function is called. If you need to
+		execute code when all ports are available, use Plugin.ready()
 		"""
 		self.initialized = True
 		self.check_ports_ready()
 
 	def port_added(self, port_id, port_flags, group_id, port_name):
+		"""
+		Called in response to a port added event from the Carla host engine.
+
+		Note that this function, like any function called from a Carla host engine
+		event, may be called from a thread other than the main thread.
+		"""
 		self.ports[port_id] = PatchbayPort(self.client_id, port_id, port_flags, group_id, port_name)
 		if self.initialized:
 			self.check_ports_ready()
 
 	def check_ports_ready(self):
+		"""
+		Called in response to port added events from the Carla host engine.
+
+		Checks that all defined ports have been registered by Carla.
+
+		Note that this function may be called from a thread other than the main thread.
+		"""
 		self.ports_ready =	len(self.audio_ins()) >= self._audio_in_count and \
 							len(self.audio_outs()) >= self._audio_out_count and \
 							len(self.midi_ins()) >= self._midi_in_count and \
 							len(self.midi_outs()) >= self._midi_out_count
 		if self.ports_ready:
-			if self.ready_to_run:
+			if self.is_ready:
 				return
 			if self.saved_state is None:
 				for param in self.parameters.values():
 					param.get_internal_value()
 			else:
 				self.restore_saved_state()
-			self.ready_to_run = True
-			if self._cb_ready is not None:
-				self._cb_ready(self.plugin_id)
+			self.is_ready = True
 			self.ready()
 
 	def ready(self):
 		"""
-		Called after post_embed_init() and all ports ready
+		Called after post_embed_init() and all ports ready.
+		You can check the state of this plugin using the "Plugin.is_ready" property.
 		"""
 		logging.debug('%s ready', self)
 		if self._cb_ready is not None:
 			self._cb_ready()
 
-	def delete(self):
+	def remove(self):
+		"""
+		Removes this plugin from Carla.
+
+		(See also "got_removed")
+		"""
 		Carla.instance.remove_plugin(self.plugin_id)
 
 	# -------------------------------------------------------------------
 	# Saved state (saving / loading) functions
 
 	def encode_saved_state(self):
+		"""
+		Returns a dictionary which may be used for encoding an object's state in a way
+		that it may be restored using "restore_saved_state".
+		A typical use is to encode the saved state as JSON and save it in a file.
+		"""
 		return {
 			"plugin_def"	: self.plugin_def,
-			"vars"			: Plugin.encode_properties(self, self._save_state_keys),
+			"vars"			: encode_properties(self, self._save_state_keys),
 			"parameters"	: { key:self.parameters[key].value for key in self.parameters if self.parameters[key].is_used }
 		}
 
 	def restore_saved_state(self):
+		"""
+		Restores the plugin from the saved_state passed to this plugin's __init__ function.
+		This function is called from "check_ports_ready" before calling Plugin.ready()
+		"""
 		for key, value in self.saved_state["vars"].items():
 			setattr(self, key, value)
 		for key, value in self.saved_state["parameters"].items():
@@ -2625,79 +2701,93 @@ class Plugin(PatchbayClient):
 	# Misc functions
 
 	def audio_in_count(self):
+		"""
+		Returns (int)
+		"""
 		return self._audio_in_count
 
 	def audio_out_count(self):
+		"""
+		Returns (int)
+		"""
 		return self._audio_out_count
 
 	def midi_in_count(self):
+		"""
+		Returns (int)
+		"""
 		return self._midi_in_count
 
 	def midi_out_count(self):
+		"""
+		Returns (int)
+		"""
 		return self._midi_out_count
 
 	def input_parameters(self):
+		"""
+		Returns a list of Parameter objects.
+		"""
 		return [ param for param in self.parameters.values() if param.is_used and param.is_input ]
 
 	def output_parameters(self):
+		"""
+		Returns a list of Parameter objects.
+		"""
 		return [ param for param in self.parameters.values() if param.is_used and param.is_output ]
 
 	def __str__(self):
 		return '<{0} "{1}">'.format(type(self).__name__, self.moniker)
 
 	def idle_fast(self):
-		pass
+		"""
+		Function which is called at a regular interval by client applications
+		Although this function is not used anywhere in this package, it is included for
+		your convenience.
+		Use it like so:
+			for plugin in Carla.instance.plugins():
+				plugin.idle_fast()
+		"""
 
 	# -------------------------------------------------------------------
 	# Functions called from Carla engine callbacks:
 
 	def debug(self, value1, value2, value3, valuef, value_str):
+		"""
+		Function called from Carla host engine.
+		"""
 		logging.debug('debug - %s value1 %s value2 %s value3 %s valuef %s value_str %s',
 			self, value1, value2, value3, valuef, value_str)
 
 	def plugin_renamed(self, new_name):
+		"""
+		Function called from Carla host engine when this Plugin is renamed.
+		"""
 		logging.debug('plugin renamed - %s newName %s',
 			self, new_name)
 		self.name = new_name
 
 	def plugin_unavailable(self, error_msg):
+		"""
+		Function called from Carla host engine when this Plugin became unavailable.
+		"""
 		logging.debug('plugin unavailable - %s errorMsg %s',
-			self, errorMsg)
+			self, error_msg)
 
 	def got_removed(self):
+		"""
+		Function called from Carla host engine when this Plugin got removed.
+		"""
 		if self._cb_removed is not None:
 			self._cb_removed()
 
-	def parameter_value_changed(self, index, value):
-		if index == PARAMETER_NULL:
-			return
-		elif index == PARAMETER_ACTIVE:
-			self.active = value != 0
-		elif index == PARAMETER_DRYWET:
-			self.dry_wet = value
-		elif index == PARAMETER_VOLUME:
-			self.volume = value
-		elif index == PARAMETER_BALANCE_LEFT:
-			self.balance_left = value
-		elif index == PARAMETER_BALANCE_RIGHT:
-			self.balance_right = value
-		elif index == PARAMETER_PANNING:
-			self.panning = value
-		elif index == PARAMETER_CTRL_CHANNEL:
-			self.ctrl_channel = value
-		elif index == PARAMETER_MAX:
-			return
-		else:
-			if index in self.parameters:
-				parameter = self.parameters[index]
-				parameter.internal_value_changed(value)
-				self.parameter_internal_value_changed(parameter, value)
-			else:
-				logging.error('Parameter index not in self.parameters')
-
 	def parameter_internal_value_changed(self, parameter, value):
-		#logging.debug('parameter %s internal_value_changed', parameter)
-		pass
+		"""
+		Called by the Carls host engine when the internal value of a parameter has changed.
+		"parameter" is a Parameter object.
+		"value" is the new value of the Parameter.
+		The value of the Parameter object will have already been set when this is called.
+		"""
 
 	def parameter_default_changed(self, index, value):
 		logging.debug('parameter default value changed - %s index %s value %s',
@@ -2740,13 +2830,20 @@ class Plugin(PatchbayClient):
             self.b_gui.setChecked(False)
             self.b_gui.setEnabled(False)
 		"""
-		pass
 
-	def note_on(self, channel, note, velocity):
+	def note_on(self, channel, note, _):
+		"""
+		Called in from Carla when a MIDI "note on" event is received.
+		Used to keep track of whether any MIDI notes are currently active.
+		"""
 		self._midi_notes[channel][note] = True
 		self.midi_active(True)
 
 	def note_off(self, channel, note):
+		"""
+		Called in from Carla when a MIDI "note off" event is received.
+		Used to keep track of whether any MIDI notes are currently active.
+		"""
 		self._midi_notes[channel][note] = False
 		self.midi_active(self._midi_notes.any())
 
@@ -2777,107 +2874,159 @@ class Plugin(PatchbayClient):
 
 	@property
 	def active(self):
+		"""
+		Gets the "active" state of this Plugin.
+		"""
 		return self._active
 
 	@active.setter
 	def active(self, value):
+		"""
+		Set the "active" state of this Plugin.
+		"""
 		self._active = value
 
 	@property
 	def dry_wet(self):
+		"""
+		Get the dry/wet mix.
+		Returns a float value in the range 0.0 to 1.0.
+		"""
 		return self._dry_wet
 
 	@dry_wet.setter
 	def dry_wet(self, value):
+		"""
+		Sets the dry/wet mix.
+		"value" must be a float value in the range 0.0 to 1.0.
+		"""
 		self._dry_wet = value
 
 	@property
 	def volume(self):
+		"""
+		Get the current (cached) value of this Plugin's volume.
+		Returns a float value in the range 0.0 to 1.0.
+		"""
 		return self._volume
 
 	@volume.setter
 	def volume(self, value):
 		"""
-		Float value from 0.0 - 1.0
+		Sets the volume.
+		"value" must be a float value in the range 0.0 to 1.0.
 		"""
 		self._volume = value
 
 	@property
 	def balance_left(self):
+		"""
+		Get the left balance value (if applicable).
+		Returns a float value in the range 0.0 to 1.0.
+		"""
 		return self._balance_left
 
 	@balance_left.setter
 	def balance_left(self, value):
+		"""
+		Sets the balance of the left channel (if applicable).
+		"value" must be a float value in the range 0.0 to 1.0.
+		"""
 		if value < -1.0 or value > 1.0:
 			raise ValueError()
 		self._balance_left = value
 
 	@property
 	def balance_right(self):
+		"""
+		Get the right balance value (if applicable).
+		Returns a float value in the range 0.0 to 1.0.
+		"""
 		return self._balance_right
 
 	@balance_right.setter
 	def balance_right(self, value):
+		"""
+		Sets the balance of the right channel (if applicable).
+		"value" must be a float value in the range 0.0 to 1.0.
+		"""
 		if value < -1.0 or value > 1.0:
 			raise ValueError()
 		self._balance_right = value
 
 	@property
 	def balance_center(self):
+		"""
+		Returns a computed balance "center" value.
+		This Plugin must be able to provide a "balance_left" and "balance_right" value
+		for this to be meaningful.
+		Returns a float value in the range 0.0 to 1.0.
+		"""
 		return (self._balance_right - self._balance_left) / 2 + self._balance_left
 
 	@property
 	def panning(self):
+		"""
+		Get the pan value (if applicable).
+		Returns a float value in the range 0.0 to 1.0.
+		"""
 		return self._panning
 
 	@panning.setter
 	def panning(self, value):
+		"""
+		Sets the pan value (if applicable).
+		"value" must be a float value in the range 0.0 to 1.0.
+		"""
 		if value < -1.0 or value > 1.0:
 			raise ValueError()
 		self._panning = value
 
 	@property
 	def ctrl_channel(self):
+		"""
+		Not sure what this does.
+		"""
 		return self._ctrl_channel
 
 	@ctrl_channel.setter
 	def ctrl_channel(self, value):
+		"""
+		Not sure what this does.
+		"""
 		self._ctrl_channel = value
 
 	# -------------------------------------------------------------------
 	# Functions called from GUI
 
 	def mute(self):
+		"""
+		Sets volume to 0.0 and saves the previous value.
+		"""
 		self._unmute_volume = self._volume
 		self.volume = 0.0
 
 	def unmute(self):
+		"""
+		Restores the volume prior to the last "mute" call.
+		"""
 		self.volume = self._unmute_volume
 
 	def set_bypass(self, state):
+		"""
+		Bypasses this Plugin by setting dry_wet to 100% dry.
+		"""
 		if state:
 			self._unbypass_wet = self._dry_wet
 			self.dry_wet = 0
 		else:
 			self.dry_wet = self._unbypass_wet
 
-	# -------------------------------------------------------------------
-	# Utility function used when saving plugin state
-
-	@classmethod
-	def encode_properties(cls, thing, keys = None):
-		pe = {}
-		for key in dir(thing):
-			if key[0] != '_' and (keys is None or key in keys):
-				val = getattr(thing, key)
-				if hasattr(val, "encode_saved_state"):
-					val = val.encode_saved_state()
-				pe[key] = val
-		return pe
-
-
 
 class Parameter:
+	"""
+	Class which represents a Plugin parameter.
+	"""
 
 	def __init__(self, plugin_id, parameter_id):
 		"""
@@ -2926,9 +3075,8 @@ class Parameter:
 				setattr(self, k, v)
 			self.range = self.max - self.min
 
-			if False:
-				logging.debug('%s min %s max %s step %s stepSmall %s stepLarge %s using unit "%s"',
-					self.name, self.min, self.max, self.step, self.stepSmall, self.stepLarge, self.unit)
+			#logging.debug('%s min %s max %s step %s stepSmall %s stepLarge %s using unit "%s"',
+				#self.name, self.min, self.max, self.step, self.stepSmall, self.stepLarge, self.unit)
 
 			# Scale points (get_parameter_scalepoint_info) if necessary
 			self.__scale_points = {
@@ -2942,33 +3090,52 @@ class Parameter:
 				pprint(self.__scale_points)
 
 	def internal_value_changed(self, value):
+		"""
+		Called from Carla engine when the value of this Parameter changed.
+		"""
+		#TODO: Test if called when parameter is set, and not in docs
 		#logging.debug('internal_value_changed %s %s', self, value)
 		self.__value = value
 
 	@property
 	def value(self):
+		"""
+		Returns the (cached) value of this Parameter.
+		(Does not request value from Carla)
+		"""
 		return self.__value
 
 	@value.setter
 	def value(self, value):
-		#logging.debug('Set %s', self)
-		if not hasattr(self, "min"):
-			return logging.debug('PLUGIN %s PARAMETER %s HAS NO min', self.plugin(), self)
-		if not hasattr(self, "max"):
-			return logging.debug('PLUGIN %s PARAMETER %s HAS NO max', self.plugin(), self)
-		if self.min <= value <= self.max:
-			if self.__value != value:
-				self.__value = value
-				Carla.instance.set_parameter_value(self.plugin_id, self.parameter_id, value)
+		"""
+		Sets the value of this Parameter both in Carla and cached.
+		"value" must be in the range of this Parameter's "min" and "max".
+		"""
+		if hasattr(self, "min"):
+			if hasattr(self, "max"):
+				if self.min <= value <= self.max:
+					if self.__value != value:
+						self.__value = value
+						Carla.instance.set_parameter_value(self.plugin_id, self.parameter_id, value)
+				else:
+					logging.warning('Parameter "%s" (%s) out of range. Min: %s Max %s',
+						self.name, value, self.min, self.max)
+			else:
+				logging.debug('PLUGIN %s PARAMETER %s HAS NO max', self.plugin(), self)
 		else:
-			logging.warning('Parameter "%s" (%s) out of range. Min: %s Max %s',
-				name, value, self.min, self.max)
+			logging.debug('PLUGIN %s PARAMETER %s HAS NO min', self.plugin(), self)
 
 	def get_internal_value(self):
+		"""
+		Returns the current internal value of this Parameter from Carla, and updates the cached value.
+		"""
 		self.__value = Carla.instance.get_current_parameter_value(self.plugin_id, self.parameter_id)
 		return self.__value
 
 	def plugin(self):
+		"""
+		Returns the Plugin which "owns" this Parameter.
+		"""
 		return Carla.instance.plugin(self.plugin_id)
 
 	def __str__(self):

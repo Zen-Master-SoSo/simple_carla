@@ -17,7 +17,7 @@ class TestApp:
 		carla = Carla(APPLICATION_NAME)
 		carla.on_engine_started(self.carla_started)
 		carla.on_engine_stopped(self.carla_stopped)
-		if not carla.engine_init("JACK"):
+		if not carla.engine_init():
 			audioError = carla.get_last_error()
 			if audioError:
 				raise Exception("Could not connect to JACK; possible reasons:\n%s" % audioError)
@@ -33,7 +33,7 @@ class TestApp:
 	def carla_stopped(self):
 		logging.debug('======= Engine stopped ========')
 
-	def meter_ready(self, plugin_id):
+	def meter_ready(self):
 		logging.debug('TestApp meter_ready ')
 		self.ready = True
 		assert(Carla.instance is Carla(APPLICATION_NAME))
@@ -80,6 +80,7 @@ class EBUMeter(Plugin):
 		Called after post_embed_init() and all ports ready
 		"""
 		self.parameters[0].value = -6.0
+		super().ready()
 
 	def value(self):
 		return self.parameters[1].get_internal_value()

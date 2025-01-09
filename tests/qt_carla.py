@@ -3,12 +3,11 @@
 #  Copyright 2024 liyang <liyang@veronica>
 #
 import logging
-from simple_carla.qt import CarlaQt, QtPlugin
 from time import sleep
 from PyQt5.QtCore import pyqtSlot
-from PyQt5.QtCore import QObject
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtWidgets import QMainWindow
+from simple_carla.qt import CarlaQt, QtPlugin
 
 
 APPLICATION_NAME = 'qt_carla'
@@ -16,18 +15,17 @@ APPLICATION_NAME = 'qt_carla'
 
 class TestApp(QMainWindow):
 
-	def __init__(self, meter_class='EBUMeter'):
+	def __init__(self):
 		super().__init__()
 		self.ready = False
 		carla = CarlaQt(APPLICATION_NAME)
-		CarlaQt.instance.sig_engine_started.connect(self.carla_started)
-		CarlaQt.instance.sig_engine_stopped.connect(self.carla_stopped)
-		if not CarlaQt.instance.engine_init("JACK"):
-			audioError = CarlaQt.instance.get_last_error()
+		carla.sig_engine_started.connect(self.carla_started)
+		carla.sig_engine_stopped.connect(self.carla_stopped)
+		if not carla.engine_init():
+			audioError = carla.get_last_error()
 			if audioError:
 				raise Exception("Could not connect to JACK; possible reasons:\n%s" % audioError)
-			else:
-				raise Exception('Could not connect to JACK')
+			raise Exception('Could not connect to JACK')
 
 	@pyqtSlot(int, int, int, int, float, str)
 	def carla_started(self, plugin_count, process_mode, transport_mode, buffer_size, sample_rate, driver_name):
@@ -76,7 +74,6 @@ class EBUMeter(QtPlugin):
 
 
 if __name__ == "__main__":
-	from PyQt5.QtCore import QCoreApplication
 	logging.basicConfig(
 		level = logging.DEBUG,
 		format = "[%(filename)24s:%(lineno)-4d] %(message)s"
