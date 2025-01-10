@@ -236,7 +236,6 @@ def polite_function(func):
 	@wraps(func)
 	def wrapper(*args, **kwargs):
 		with _engine_exclusive:
-			# logging.debug('polite_function %s acquired semaphore', func.__name__)
 			retval = func(*args, **kwargs)
 		return retval
 	return wrapper
@@ -1289,7 +1288,6 @@ class _SimpleCarla(CarlaHostDLL):
 			return
 		if carla_plugin_name in self._plugin_by_uuid:
 			self._plugins[plugin_id] = self._plugin_by_uuid[carla_plugin_name]
-			#logging.debug('Plugin added: %s', self._plugins[plugin_id])
 			self._plugins[plugin_id].post_embed_init(plugin_id) 		# Set up parameters, etc.
 		else:
 			logging.warning('cb_plugin_added: Plugin "%s" not found in _plugin_by_uuid when added', carla_plugin_name)
@@ -2558,7 +2556,7 @@ class Plugin(PatchbayClient):
 		self.moniker				= None
 		self.initialized			= False
 		self.ports_ready			= False
-		self.is_ready			= False
+		self.is_ready				= False
 		self.can_drywet				= False
 		self.can_volume				= False
 		self.can_balance			= False
@@ -2933,7 +2931,10 @@ class Plugin(PatchbayClient):
 		"""
 		Set the "active" state of this Plugin.
 		"""
-		self._active = value
+		if self.is_ready:
+			self._active = value
+			# logging.debug('set active %s', value)
+			Carla.instance.set_active(self.plugin_id, bool(value))
 
 	@property
 	def dry_wet(self):
@@ -2949,7 +2950,10 @@ class Plugin(PatchbayClient):
 		Sets the dry/wet mix.
 		"value" must be a float value in the range 0.0 to 1.0.
 		"""
-		self._dry_wet = value
+		if isinstance(value, float):
+			self._dry_wet = value
+			# logging.debug('set dry_wet %s', value)
+			Carla.instance.set_drywet(self.plugin_id, value)
 
 	@property
 	def volume(self):
@@ -2965,7 +2969,10 @@ class Plugin(PatchbayClient):
 		Sets the volume.
 		"value" must be a float value in the range 0.0 to 1.0.
 		"""
-		self._volume = value
+		if isinstance(value, float):
+			self._volume = value
+			# logging.debug('set volume %s', value)
+			Carla.instance.set_volume(self.plugin_id, value)
 
 	@property
 	def balance_left(self):
@@ -2981,9 +2988,12 @@ class Plugin(PatchbayClient):
 		Sets the balance of the left channel (if applicable).
 		"value" must be a float value in the range 0.0 to 1.0.
 		"""
-		if value < -1.0 or value > 1.0:
-			raise ValueError()
-		self._balance_left = value
+		if isinstance(value, float):
+			if value < -1.0 or value > 1.0:
+				raise ValueError()
+			self._balance_left = value
+			# logging.debug('set balance_left %s', value)
+			Carla.instance.set_balance_left(self.plugin_id, value)
 
 	@property
 	def balance_right(self):
@@ -2999,9 +3009,12 @@ class Plugin(PatchbayClient):
 		Sets the balance of the right channel (if applicable).
 		"value" must be a float value in the range 0.0 to 1.0.
 		"""
-		if value < -1.0 or value > 1.0:
-			raise ValueError()
-		self._balance_right = value
+		if isinstance(value, float):
+			if value < -1.0 or value > 1.0:
+				raise ValueError()
+			self._balance_right = value
+			# logging.debug('set balance_right %s', value)
+			Carla.instance.set_balance_right(self.plugin_id, value)
 
 	@property
 	def balance_center(self):
@@ -3027,9 +3040,12 @@ class Plugin(PatchbayClient):
 		Sets the pan value (if applicable).
 		"value" must be a float value in the range 0.0 to 1.0.
 		"""
-		if value < -1.0 or value > 1.0:
-			raise ValueError()
-		self._panning = value
+		if isinstance(value, float):
+			if value < -1.0 or value > 1.0:
+				raise ValueError()
+			self._panning = value
+			# logging.debug('set panning %s', value)
+			Carla.instance.set_panning(self.plugin_id, value)
 
 	@property
 	def ctrl_channel(self):
@@ -3043,6 +3059,8 @@ class Plugin(PatchbayClient):
 		"""
 		Not sure what this does.
 		"""
+		# logging.debug('set ctrl_channel %s', value)
+		Carla.instance.set_ctrl_channel(self.plugin_id, value)
 		self._ctrl_channel = value
 
 	# -------------------------------------------------------------------
@@ -3142,7 +3160,7 @@ class Parameter:
 		"""
 		Called from Carla engine when the value of this Parameter changed.
 		"""
-		#TODO: Test if called when parameter is set, and not in docs
+		#TODO: Test if called when parameter is set, and note in docs
 		#logging.debug('internal_value_changed %s %s', self, value)
 		self.__value = value
 
