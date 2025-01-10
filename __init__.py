@@ -2143,20 +2143,28 @@ class PatchbayClient:
 
 	def connect_audio_outputs_to(self, other_client):
 		"""
-		other_client: PatchbayClient (or class extending PatchbayClient)
 		Connects audio outputs to the "other_client" inputs.
+
+		other_client: PatchbayClient (or class extending PatchbayClient)
+
 		In the case of multiple (i.e. stereo) ports, the order in which they are
 		connected is determined by the client.
+
+		If a port is already connected, no new connection is made.
 		"""
 		for outport, inport in zip(self.audio_outs(), other_client.audio_ins()):
 			outport.connect_to(inport)
 
 	def connect_midi_outputs_to(self, other_client):
 		"""
-		other_client: PatchbayClient (or class extending PatchbayClient)
 		Connects midi outputs to the "other_client" inputs.
+
+		other_client: PatchbayClient (or class extending PatchbayClient)
+
 		In the case of multiple ports, the order in which they are connected is
 		determined by the client.
+
+		If a port is already connected, no new connection is made.
 		"""
 		for outport, inport in zip(self.midi_outs(), other_client.midi_ins()):
 			outport.connect_to(inport)
@@ -2165,21 +2173,62 @@ class PatchbayClient:
 		"""
 		Disconnects all input and output ports from all connections.
 		"""
-		self.disconnect_inputs()
-		self.disconnect_outputs()
+		self._disconnect_all(self.ports)
 
 	def disconnect_inputs(self):
 		"""
 		Disconnects all input ports from all connections.
 		"""
-		for port in self.input_ports():
-			port.disconnect_all()
+		self._disconnect_all(self.input_ports())
+
+	def disconnect_midi_inputs(self):
+		"""
+		Disconnects all midi input ports from all connections.
+		"""
+		self._disconnect_all(self.midi_ins())
+
+	def disconnect_audio_inputs(self):
+		"""
+		Disconnects all audio input ports from all connections.
+		"""
+		self._disconnect_all(self.audio_ins())
+
+	def disconnect_cv_inputs(self):
+		"""
+		Disconnects all cv input ports from all connections.
+		"""
+		self._disconnect_all(self.cv_ins())
 
 	def disconnect_outputs(self):
 		"""
 		Disconnects all output ports from all connections.
 		"""
-		for port in self.output_ports():
+		self._disconnect_all(self.output_ports())
+
+	def disconnect_midi_outputs(self):
+		"""
+		Disconnects all midi output ports from all connections.
+		"""
+		self._disconnect_all(self.midi_outs())
+
+	def disconnect_audio_outputs(self):
+		"""
+		Disconnects all audio output ports from all connections.
+		"""
+		self._disconnect_all(self.audio_outs())
+
+	def disconnect_cv_outputs(self):
+		"""
+		Disconnects all cv output ports from all connections.
+		"""
+		self._disconnect_all(self.cv_outs())
+
+	def _disconnect_all(self, ports):
+		"""
+		Disconnects the given ports from all connections.
+		ports:		(list) of PatchbayPort
+		"""
+		for port in ports:
 			port.disconnect_all()
 
 	# -------------------------------------------------------------------
@@ -2236,7 +2285,7 @@ class PatchbayClient:
 	# -------------------------------------------------------------------
 	# Other port access funcs:
 
-	def first_midi_input_port(self):
+	def midi_input_port(self):
 		"""
 		Returns PatchbayPort.
 		"""
