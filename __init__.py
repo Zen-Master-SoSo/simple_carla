@@ -658,7 +658,6 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		return int(self.lib.carla_get_max_plugin_number(self.handle))
 
-	@polite_function
 	def get_current_plugin_count(self):
 		"""
 		Current number of plugins loaded.
@@ -1303,11 +1302,11 @@ class _SimpleCarla(CarlaHostDLL):
 			# Renumber plugins per Carla plugin_id conventions:
 			for i in range(plugin_id, len(self._plugins) - 1):
 				self._plugins[i] = self._plugins[i + 1]
-				self._plugins[i].plugin_id = i
+				self._plugins[i].plugin_id_changed(i)
 			self._plugins.pop(len(self._plugins) - 1)
+			plugin.got_removed()
 			if self.is_clear():
 				self._alert_last_plugin_removed()
-			plugin.got_removed()
 		else:
 			logging.warning('cb_plugin_removed: Plugin removed (%d) not in _plugins', plugin_id)
 
@@ -1445,17 +1444,10 @@ class _SimpleCarla(CarlaHostDLL):
 			if client.client_name in self._sys_clients:
 				del self._sys_clients[client.client_name]
 				logging.debug('cb_patchbay_client_removed: Client "%s" was removed from _sys_clients', client)
-			elif client.uuid in self._plugin_by_uuid:
-				# You would think it be like this, but it don't
-				# del self._plugin_by_uuid[client.uuid]
-				logging.debug('cb_patchbay_client_removed: Plugin %s with uuid %s was removed from _plugin_by_uuid - SKIPPING',
-					client, client.uuid)
-			else:
-				logging.debug('cb_patchbay_client_removed: Client to remove (%s) not in _sys_clients or _plugin_by_uuid', client)
 			del self._clients[client_id]
-			logging.debug('cb_patchbay_client_removed: Client "%s" removed from _clients', client)
+			logging.debug('cb_patchbay_client_removed: Client %s', client)
 		else:
-			logging.warning('cb_patchbay_client_removed: Client removed (%s) not in ._clients', client_id)
+			logging.warning('cb_patchbay_client_removed: Client removed (%s) not in _clients', client_id)
 
 	def cb_patchbay_client_renamed(self, client_id, new_client_name):
 		logging.debug('cb_patchbay_client_renamed: "%s" new name: "%s"',
@@ -2352,7 +2344,7 @@ class SystemPatchbayClient(PatchbayClient):
 		return len(self.midi_outs())
 
 	def __str__(self):
-		return '<SystemPatchbayClient "%s">' % self.moniker
+		return f'<SystemPatchbayClient "{self.moniker}" (client_id {self.client_id})>'
 
 
 class PatchbayPort:
@@ -2718,6 +2710,14 @@ class Plugin(PatchbayClient):
 		"""
 		Carla.instance.remove_plugin(self.plugin_id)
 
+	def plugin_id_changed(self, new_plugin_id):
+		"""
+		Called from Carla.cb_plugin_removed; updates contained Parameters
+		"""
+		self.plugin_id = new_plugin_id
+		for param in self.parameters.values():
+			param.plugin_id = new_plugin_id
+
 	# -------------------------------------------------------------------
 	# Saved state (saving / loading) functions
 
@@ -2784,7 +2784,8 @@ class Plugin(PatchbayClient):
 		return [ param for param in self.parameters.values() if param.is_used and param.is_output ]
 
 	def __str__(self):
-		return '<{0} "{1}">'.format(type(self).__name__, self.moniker)
+		return '<{0} "{1}" (uuid {2}, client_id {3})>'.format(
+			type(self).__name__, self.moniker, self.uuid, self.client_id)
 
 	def idle_fast(self):
 		"""

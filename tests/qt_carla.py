@@ -7,6 +7,7 @@ from time import sleep
 from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtWidgets import QMainWindow
+from simple_carla import Plugin
 from simple_carla.qt import CarlaQt, QtPlugin
 
 
@@ -38,8 +39,8 @@ class TestApp(QMainWindow):
 	def carla_stopped(self):
 		logging.debug('======= Engine stopped ========')
 
-	@pyqtSlot(int)
-	def meter_ready(self, plugin_id):
+	@pyqtSlot(Plugin)
+	def meter_ready(self, plugin):
 		logging.debug('Received sig_ready ')
 		self.close()
 
