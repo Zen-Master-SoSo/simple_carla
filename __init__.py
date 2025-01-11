@@ -2081,6 +2081,7 @@ class PatchbayClient:
 
 	def __init__(self):
 		self.ports = {}
+		self.client_id = None
 
 	# -------------------------------------------------------------------
 	# Methods which respond to patchbay changes
@@ -2545,6 +2546,7 @@ class Plugin(PatchbayClient):
 		self.saved_state			= saved_state
 		self.original_plugin_name	= self.plugin_def['name']
 		self.plugin_id				= None
+		self.client_id				= None
 		self.moniker				= None
 		self.initialized			= False
 		self.ports_ready			= False

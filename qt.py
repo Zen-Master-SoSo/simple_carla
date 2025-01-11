@@ -316,7 +316,7 @@ class QtPlugin(Plugin, QObject):
 		Called after post_embed_init() and all ports ready.
 		You can check the state of this plugin using the "Plugin.is_ready" property.
 		"""
-		logging.debug('%s ready', self)
+		#logging.debug('%s ready', self)
 		self.sig_ready.emit(self)
 
 	def got_removed(self):
