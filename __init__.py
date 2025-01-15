@@ -2422,12 +2422,6 @@ class PatchbayPort:
 		"""
 		return self.client().client_name
 
-	def display_name(self):
-		"""
-		Returns str (client moniker + this port's name)
-		"""
-		return "{0} {1}".format(self.client().moniker, self.port_name)
-
 	def jack_name(self):
 		"""
 		Returns str (client moniker + this port's name in format that JACK uses)
