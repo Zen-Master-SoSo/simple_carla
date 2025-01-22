@@ -2930,7 +2930,6 @@ class Plugin(PatchbayClient):
 		"""
 		if self.is_ready:
 			self._active = value
-			# logging.debug('set active %s', value)
 			Carla.instance.set_active(self.plugin_id, bool(value))
 
 	@property
@@ -2948,8 +2947,9 @@ class Plugin(PatchbayClient):
 		"value" must be a float value in the range 0.0 to 1.0.
 		"""
 		if isinstance(value, float):
+			if value < 0.0 or value > 1.0:
+				raise ValueError()
 			self._dry_wet = value
-			# logging.debug('set dry_wet %s', value)
 			Carla.instance.set_drywet(self.plugin_id, value)
 
 	@property
@@ -2967,8 +2967,9 @@ class Plugin(PatchbayClient):
 		"value" must be a float value in the range 0.0 to 1.0.
 		"""
 		if isinstance(value, float):
+			if value < 0.0 or value > 1.0:
+				raise ValueError()
 			self._volume = value
-			# logging.debug('set volume %s', value)
 			Carla.instance.set_volume(self.plugin_id, value)
 
 	@property
@@ -2989,7 +2990,6 @@ class Plugin(PatchbayClient):
 			if value < -1.0 or value > 1.0:
 				raise ValueError()
 			self._balance_left = value
-			# logging.debug('set balance_left %s', value)
 			Carla.instance.set_balance_left(self.plugin_id, value)
 
 	@property
@@ -3010,7 +3010,6 @@ class Plugin(PatchbayClient):
 			if value < -1.0 or value > 1.0:
 				raise ValueError()
 			self._balance_right = value
-			# logging.debug('set balance_right %s', value)
 			Carla.instance.set_balance_right(self.plugin_id, value)
 
 	@property
@@ -3041,7 +3040,6 @@ class Plugin(PatchbayClient):
 			if value < -1.0 or value > 1.0:
 				raise ValueError()
 			self._panning = value
-			# logging.debug('set panning %s', value)
 			Carla.instance.set_panning(self.plugin_id, value)
 
 	@property
