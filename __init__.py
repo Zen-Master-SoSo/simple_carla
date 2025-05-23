@@ -6,8 +6,8 @@ import os, sys, threading, time, logging, traceback
 from ctypes import byref, cast, c_char_p, c_void_p, POINTER
 from functools import wraps
 from struct import pack
-from pprint import pprint
 from numpy import zeros as np_zeros
+from good_logging import StreamToLogger
 import qt_extras.autofit
 
 
@@ -2628,7 +2628,8 @@ class Plugin(PatchbayClient):
 		self.skip_sending_notes			= self.optionsEnabled & PLUGIN_OPTION_SKIP_SENDING_NOTES != 0
 
 		if self.use_chunks:
-			pprint(carla.get_chunk_data(self.plugin_id))
+			with StreamToLogger() as slog:
+				print(carla.get_chunk_data(self.plugin_id), file = slog)
 
 		counts = carla.get_audio_port_count_info(self.plugin_id)
 		self._audio_in_count = counts['ins']
@@ -3149,7 +3150,8 @@ class Parameter:
 				]} if self.uses_scalepoints else None
 			if not self.__scale_points is None and len(self.__scale_points) > 2:
 				logging.debug('%s SCALEPOINTS USED:', str(self.plugin()))
-				pprint(self.__scale_points)
+				with StreamToLogger() as slog:
+					print(self.__scale_points, file = slog)
 
 	def internal_value_changed(self, value):
 		"""
