@@ -2544,6 +2544,7 @@ class Plugin(PatchbayClient):
 		self.moniker				= None
 		self.initialized			= False
 		self.ports_ready			= False
+		self.added_to_carla			= False
 		self.is_ready				= False
 		self.can_drywet				= False
 		self.can_volume				= False
@@ -2573,6 +2574,9 @@ class Plugin(PatchbayClient):
 		Tells Carla to add this plugin. At this point there is no plugin_id assigned,
 		parameters setup, or ports setup.
 		"""
+		if self.added_to_carla:
+			raise RuntimeWarning(f'Plugin {self} already added to Carla')
+			self.added_to_carla = True
 		Carla.instance.add_plugin(self)
 
 	def post_embed_init(self, plugin_id):
