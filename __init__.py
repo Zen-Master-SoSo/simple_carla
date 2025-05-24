@@ -2300,12 +2300,7 @@ class PatchbayClient:
 		Return all clients which are connected to all of this PatchbayClient's input ports.
 		(May return classes extending PatchbayClient, i.e. SystemPatchbayClient / Plugin)
 		"""
-		clients = []
-		for port in self.input_ports():
-			for client in port.connected_clients():
-				if client not in clients:
-					clients.append(client)
-		return clients
+		return self._exclusive_clients(self.input_ports())
 
 	def output_clients(self):
 		"""
@@ -2313,12 +2308,39 @@ class PatchbayClient:
 		Return all clients which are connected to all of this PatchbayClient's output ports.
 		(May return classes extending PatchbayClient, i.e. SystemPatchbayClient / Plugin)
 		"""
-		clients = []
-		for port in self.output_ports():
-			for client in port.connected_clients():
-				if client not in clients:
-					clients.append(client)
-		return clients
+		return self._exclusive_clients(self.output_ports())
+
+	def _exclusive_clients(self, ports):
+		"""
+		Returns list of PatchbayClient.
+		Implements the reduction of port clients to an exlusive set.
+		Used by both "input_clients" and "output_clients" functions.
+		"""
+		return list(set( [
+			client \
+			for port in ports
+			for client in port.connected_clients()
+		 ] ))
+
+	def input_connections(self):
+		"""
+		Returns a list of PatchbayConnection
+		"""
+		return [
+			connection \
+			for port in self.input_ports() \
+			for connection in port.connections()
+		]
+
+	def output_connections(self):
+		"""
+		Returns a list of PatchbayConnection
+		"""
+		return [
+			connection \
+			for port in self.output_ports() \
+			for connection in port.connections()
+		]
 
 
 class SystemPatchbayClient(PatchbayClient):
@@ -2427,6 +2449,12 @@ class PatchbayPort:
 		Returns str (client moniker + this port's name in format that JACK uses)
 		"""
 		return "{0}:{1}".format(self.client().client_name, self.port_name)
+
+	def connections(self):
+		"""
+		Returns a list of PatchbayConnection.
+		"""
+		return self._connections.values()
 
 	def is_connected_to(self, other_port):
 		"""
