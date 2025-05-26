@@ -2608,10 +2608,11 @@ class Plugin(PatchbayClient):
 	# Internal lifecycle events
 
 	def __init__(self, plugin_def=None, saved_state=None):
-		if plugin_def is not None:
+		if plugin_def is None:
+			if self.plugin_def is None:
+				raise RuntimeError("No definition for plugin")
+		else:
 			self.plugin_def			= plugin_def
-		if self.plugin_def is None:
-			raise Exception("No definition for plugin")
 		self.saved_state			= saved_state
 		self.original_plugin_name	= self.plugin_def['name']
 		self.plugin_id				= None
