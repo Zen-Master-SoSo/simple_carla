@@ -2164,7 +2164,7 @@ class PatchbayClient:
 		"""
 		Disconnects all input and output ports from all connections.
 		"""
-		self._disconnect_all(self.ports)
+		self._disconnect_all(self.ports.values())
 
 	def disconnect_inputs(self):
 		"""
@@ -2322,25 +2322,55 @@ class PatchbayClient:
 			for client in port.connected_clients()
 		 ] ))
 
+	def connections(self):
+		"""
+		Returns a list of PatchbayConnection
+		Returns all connections to all ports.
+		"""
+		return self._connections_to_ports(self.ports.values())
+
 	def input_connections(self):
 		"""
 		Returns a list of PatchbayConnection
+		Returns all connections to all input ports.
 		"""
-		return [
-			connection \
-			for port in self.input_ports() \
-			for connection in port.connections()
-		]
+		return self._connections_to_ports(self.input_ports())
 
 	def output_connections(self):
 		"""
 		Returns a list of PatchbayConnection
+		Returns all connections to all output ports.
+		"""
+		return self._connections_to_ports(self.output_ports())
+
+	def _connections_to_ports(self, ports):
+		return [
+			conn \
+			for port in ports \
+			for conn in port.connections()
+		]
+
+	def connections_to(self, client):
+		"""
+		Returns a list of all connections to the given client.
+		"client": PatchbayClient
 		"""
 		return [
-			connection \
-			for port in self.output_ports() \
-			for connection in port.connections()
+			conn \
+			for conn in self.connections() \
+			if conn.in_port.client_id == client.client_id \
+			or conn.out_port.client_id == client.client_id
 		]
+
+	def is_connected_to(self, client):
+		"""
+		Returns boolean True if any port is connected to the given client.
+		"client": PatchbayClient
+		"""
+		return any(
+			conn.in_port.client_id == client.client_id or conn.out_port.client_id == client.client_id \
+			for conn in self.connections()
+		)
 
 
 class SystemPatchbayClient(PatchbayClient):
@@ -2461,10 +2491,27 @@ class PatchbayPort:
 		other_port: PatchbayPort
 		Returns boolean True if connected.
 		"""
-		for conn in self._connections.values():
-			if conn.in_port is other_port or conn.out_port is other_port:
-				return True
-		return False
+		return any(
+			conn.in_port is other_port or conn.out_port is other_port \
+			for conn in self._connections.values()
+		)
+
+	def connections_to(self, other_port):
+		"""
+		Returns a list of PatchbayConnection.
+		other_port: PatchbayPort
+		"""
+		return [ conn for conn in self._connections.values() \
+			if conn.in_port is other_port or conn.out_port is other_port ]
+
+	def connections_to_client(self, client):
+		"""
+		Returns a list of PatchbayConnection.
+		client: PatchbayClient
+		"""
+		return [ conn for conn in self._connections.values() \
+			if conn.in_port.client_id == client.client_id \
+			or conn.out_port.client_id == client.client_id ]
 
 	def connected_ports(self):
 		"""
