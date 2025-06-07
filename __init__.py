@@ -295,7 +295,12 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		if self.client_name is None:
 			self.client_name = client_name
-			self._init_dicts()
+			self._plugins			= {}	# Plugin, indexed on Carla -generated "plugin_id"
+			self._clients			= {}	# PatchbayClient, indexed on Carla -generated "client_id"
+			self._sys_clients		= {}	# SystemPatchbayClient, indexed on "client_name"
+			self._connections		= {}	# PatchbayConnection, indexed on Carla -generated "connection_id"
+			self._plugin_by_uuid	= {}	# Plugin, indexed on "uuid", used for identifying plugin during instantiation
+			self._uuid				= 0		# Current "uuid", incremented sequentially
 			libname = "libcarla_standalone2.so"
 			CarlaHostDLL.__init__(self, os.path.join(binpath, libname), False)
 
@@ -335,14 +340,6 @@ class _SimpleCarla(CarlaHostDLL):
 			self.set_engine_option(ENGINE_OPTION_PROCESS_MODE, self.processMode, "")
 			self.set_engine_option(ENGINE_OPTION_DEBUG_CONSOLE_OUTPUT, self.showLogs, "")
 			self.set_engine_option(ENGINE_OPTION_CLIENT_NAME_PREFIX, 0, self.client_name)
-
-	def _init_dicts(self):
-		self._plugins			= {}	# Plugin, indexed on Carla -generated "plugin_id"
-		self._clients			= {}	# PatchbayClient, indexed on Carla -generated "client_id"
-		self._sys_clients		= {}	# SystemPatchbayClient, indexed on "client_name"
-		self._connections		= {}	# PatchbayConnection, indexed on Carla -generated "connection_id"
-		self._plugin_by_uuid	= {}	# Plugin, indexed on "uuid", used for identifying plugin during instantiation
-		self._uuid				= 0		# Current "uuid", incremented sequentially
 
 	# -------------------------------------------------------------------
 	# Save state (pathcbay connections)
@@ -1255,7 +1252,7 @@ class _SimpleCarla(CarlaHostDLL):
 	# ---
 	# NSM
 
-	#@polite_function
+	@polite_function
 	def nsm_init(self, pid, executable_name):
 		"""
 		Initialize NSM (that is, announce ourselves to it).
