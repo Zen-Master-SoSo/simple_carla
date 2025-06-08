@@ -1544,13 +1544,13 @@ class _SimpleCarla(CarlaHostDLL):
 
 	def plugins(self):
 		"""
-		Returns list of Plugin objects which have been initialized
+		Returns list of Plugin objects which have been added to Carla.
 		"""
 		return list(self._plugins.values())
 
 	def plugin_count(self):
 		"""
-		Returns (int) number of initialized plugins.
+		Returns (int) number of plugins added to Carla.
 		"""
 		return len(self._plugins)
 
@@ -1597,7 +1597,7 @@ class _SimpleCarla(CarlaHostDLL):
 
 	def is_clear(self):
 		"""
-		Returns boolean True if no (initialized) plugins are loaded.
+		Returns boolean True if no plugins are added to Carla.
 		"""
 		return self.plugin_count() == 0
 
@@ -2615,7 +2615,6 @@ class Plugin(PatchbayClient):
 		self.plugin_id				= None
 		self.client_id				= None
 		self.moniker				= None
-		self.initialized			= False
 		self.ports_ready			= False
 		self.added_to_carla			= False
 		self.is_ready				= False
@@ -2721,17 +2720,16 @@ class Plugin(PatchbayClient):
 			self.parameters[param.index] = param
 
 		self.finalize_init()
+		self.check_ports_ready()
 
 	def finalize_init(self):
 		"""
-		Called at the end of post_embed_init(); override in order to execute other
-		initialization code before declaring this plugin ready.
+		Called at the end of post_embed_init()
+		Override to execute other initialization code.
 
-		Plugin ports may not be ready when this function is called. If you need to
-		execute code when all ports are available, use Plugin.ready()
+		Plugin ports might not be ready when this function is called. If you need to
+		execute code when all ports are available, extend the Plugin.ready() function.
 		"""
-		self.initialized = True
-		self.check_ports_ready()
 
 	def port_added(self, port_id, port_flags, group_id, port_name):
 		"""
@@ -2741,8 +2739,7 @@ class Plugin(PatchbayClient):
 		event, may be called from a thread other than the main thread.
 		"""
 		self.ports[port_id] = PatchbayPort(self.client_id, port_id, port_flags, group_id, port_name)
-		if self.initialized:
-			self.check_ports_ready()
+		self.check_ports_ready()
 
 	def check_ports_ready(self):
 		"""
@@ -2752,13 +2749,13 @@ class Plugin(PatchbayClient):
 
 		Note that this function may be called from a thread other than the main thread.
 		"""
+		if self.is_ready:
+			return
 		self.ports_ready =	len(self.audio_ins()) >= self._audio_in_count and \
 							len(self.audio_outs()) >= self._audio_out_count and \
 							len(self.midi_ins()) >= self._midi_in_count and \
 							len(self.midi_outs()) >= self._midi_out_count
 		if self.ports_ready:
-			if self.is_ready:
-				return
 			if self.saved_state is None:
 				for param in self.parameters.values():
 					param.get_internal_value()

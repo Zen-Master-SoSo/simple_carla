@@ -75,12 +75,8 @@ class EBUMeter(Plugin):
 		'uniqueId': 0
 	}
 
-	def ready(self):
-		"""
-		Called after post_embed_init() and all ports ready
-		"""
+	def finalize_init(self):
 		self.parameters[0].value = -6.0
-		super().ready()
 
 	def value(self):
 		return self.parameters[1].get_internal_value()
