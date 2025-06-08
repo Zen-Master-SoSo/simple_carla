@@ -7,7 +7,7 @@ from time import sleep
 from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtWidgets import QMainWindow
-from simple_carla import Plugin
+from simple_carla import Plugin, PatchbayPort
 from simple_carla.qt import CarlaQt, QtPlugin
 
 
@@ -33,6 +33,7 @@ class TestApp(QMainWindow):
 		logging.debug('======= Engine started ======== ')
 		self.meter = EBUMeter()
 		self.meter.sig_ready.connect(self.meter_ready)
+		self.meter.sig_connection_change.connect(self.meter_connect)
 		self.meter.add_to_carla()
 
 	@pyqtSlot()
@@ -41,7 +42,13 @@ class TestApp(QMainWindow):
 
 	@pyqtSlot(Plugin)
 	def meter_ready(self, plugin):
-		logging.debug('Received sig_ready ')
+		logging.debug('Received sig_ready from %s', plugin)
+		for out_port, in_port in zip(plugin.audio_outs(), CarlaQt.instance.system_audio_in_ports()):
+			out_port.connect_to(in_port)
+
+	@pyqtSlot(PatchbayPort, PatchbayPort, bool)
+	def meter_connect(self, self_port, other_port, state):
+		logging.debug('Received sig_connection_change: %s to %s: %s', self_port, other_port, state)
 		self.close()
 
 	def closeEvent(self, event):

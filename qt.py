@@ -6,7 +6,7 @@ import logging, traceback, os, sys
 
 # PyQt5 imports
 from PyQt5.QtCore import QObject, pyqtSignal
-from simple_carla import _SimpleCarla, Plugin, PatchbayClient, PatchbayPort, carla_paths
+from simple_carla import _SimpleCarla, Plugin, PatchbayClient, PatchbayPort, PatchbayConnection, carla_paths
 binpath, respath = carla_paths()
 sys.path.append(respath)
 
@@ -304,8 +304,9 @@ class QtPlugin(Plugin, QObject):
 
 	"""
 
-	sig_ready		= pyqtSignal(Plugin)
-	sig_removed 	= pyqtSignal(Plugin)
+	sig_ready				= pyqtSignal(Plugin)
+	sig_removed 			= pyqtSignal(Plugin)
+	sig_connection_change	= pyqtSignal(PatchbayPort, PatchbayPort, bool)
 
 	def __init__(self, plugin_def=None, saved_state=None):
 		QObject.__init__(self)
@@ -322,6 +323,11 @@ class QtPlugin(Plugin, QObject):
 	def got_removed(self):
 		self.sig_removed.emit(self)
 
+	def input_connection_change(self, connection, state):
+		self.sig_connection_change.emit(connection.in_port, connection.out_port, state)
+
+	def output_connection_change(self, connection, state):
+		self.sig_connection_change.emit(connection.out_port, connection.in_port, state)
 
 
 #  end simple_carla/qt.py

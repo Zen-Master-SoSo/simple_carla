@@ -1503,6 +1503,8 @@ class _SimpleCarla(CarlaHostDLL):
 		self._connections[connection_id] = connection
 		out_port.connection_added(connection)
 		in_port.connection_added(connection)
+		out_client.output_connection_change(connection, True)
+		in_client.input_connection_change(connection, True)
 
 	def cb_patchbay_connection_removed(self, connection_id, zero_1, zero_2):
 		"""
@@ -1512,8 +1514,8 @@ class _SimpleCarla(CarlaHostDLL):
 			connection = self._connections[connection_id]
 			connection.out_port.connection_removed(connection)
 			connection.in_port.connection_removed(connection)
-			self._clients[connection.out_port.client_id].output_connection_removed(connection)
-			self._clients[connection.in_port.client_id].input_connection_removed(connection)
+			self._clients[connection.out_port.client_id].output_connection_change(connection, False)
+			self._clients[connection.in_port.client_id].input_connection_change(connection, False)
 			del self._connections[connection_id]
 		else:
 			logging.warning('cb_patchbay_connection_removed: Connection %s not in ._connections',
@@ -2104,16 +2106,14 @@ class PatchbayClient:
 		"""
 		del self.ports[port_id]
 
-	def input_connection_removed(self, connection):
+	def input_connection_change(self, connection, state):
 		"""
-		Called from the Carla host, this function gives us a way to
-		efficiently update the GUI for this plugin, if necessary.
+		Called from the Carla host.
 		"""
 
-	def output_connection_removed(self, connection):
+	def output_connection_change(self, connection, state):
 		"""
-		Called from the Carla host, this function gives us a way to
-		efficiently update the GUI for this plugin, if necessary.
+		Called from the Carla host.
 		"""
 
 	# -------------------------------------------------------------------
