@@ -6,7 +6,7 @@ import logging, traceback, os, sys
 
 # PyQt5 imports
 from PyQt5.QtCore import QObject, pyqtSignal
-from simple_carla import _SimpleCarla, _Plugin, PatchbayClient, PatchbayPort, carla_paths
+from simple_carla import _SimpleCarla, Plugin, PatchbayClient, PatchbayPort, carla_paths
 binpath, respath = carla_paths()
 sys.path.append(respath)
 
@@ -290,47 +290,38 @@ class CarlaQt(_SimpleCarla, QObject):
 
 
 
-class QtPlugin(_Plugin, QObject):
+class QtPlugin(Plugin, QObject):
 	"""
 	This is an abstract class which inherits from QObject, for use by plugins which
-	have no direct user-interface.
-
-	Qt does not allow inheriting from multiple classes which extend QObject. If you
-	want to create a class which extends the abstract _Plugin class, AND a Qt class
-	which inherits QObject, it is recommended that you implement the signals and
-	functions of this class.
+	have no direct user-interface, (i.e. track & channel filter instantiated by a
+	TrackWidget). (Qt does not allow inheriting from multiple classes which
+	extend QObject)
 
 	To use:
 		plugin = QtPlugin(plugin_def)
 		plugin.sig_ready.connect(self.plugin_ready)
 		plugin.add_to_carla()
 
-	Note that in the example above, the plugin is NOT added to Carla, until the
-	signals are connected to the appropriate slots.
-
 	"""
 
-	sig_ready		= pyqtSignal(_Plugin)
-	sig_removed 	= pyqtSignal(_Plugin)
+	sig_ready		= pyqtSignal(Plugin)
+	sig_removed 	= pyqtSignal(Plugin)
 
 	def __init__(self, plugin_def=None, saved_state=None):
 		QObject.__init__(self)
-		_Plugin.__init__(self, plugin_def, saved_state)
+		Plugin.__init__(self, plugin_def, saved_state)
 
 	def ready(self):
 		"""
 		Called after post_embed_init() and all ports ready.
 		You can check the state of this plugin using the "Plugin.is_ready" property.
-		Emits the "sig_ready" signal.
 		"""
+		#logging.debug('%s ready', self)
 		self.sig_ready.emit(self)
 
 	def got_removed(self):
-		"""
-		Function called from Carla host engine when this Plugin has been removed.
-		Emits the "sig_removed" signal.
-		"""
 		self.sig_removed.emit(self)
+
 
 
 #  end simple_carla/qt.py
