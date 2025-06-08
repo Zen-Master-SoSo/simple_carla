@@ -2574,32 +2574,18 @@ class PatchbayConnection:
 # Plugins:
 
 
-class Plugin(PatchbayClient):
+class _Plugin(PatchbayClient):
 	"""
-	An abstraction of a carla plugin.
-
-	You must provide a plugin definition either by declaring the "plugin_def"
-	member in a derived class, or by passing a "plugin_def" to the constructor.
-	Plugin definitions may be discoverd by using the "plugin_dialog.py" script,
-	found in the "tests/" folder.
+	Base class of Plugin and QtPlugin
 	"""
 
 	plugin_def			= None
 	has_user_interface	= False
 
-	_cb_ready			= None
-	_cb_removed			= None
-
 	_save_state_keys	= [	'uuid', 'moniker',
 							'active', 'volume', 'dry_wet', 'panning', 'balance_left', 'balance_right',
 							'prefer_generic_dialog', 'send_all_sound_off', 'send_channel_pressure', 'send_control_changes',
 							'send_note_aftertouch', 'send_pitchbend', 'send_program_changes', 'skip_sending_notes', 'force_stereo' ]
-
-	def on_ready(self, callback):
-		self._cb_ready = callback
-
-	def on_removed(self, callback):
-		self._cb_removed = callback
 
 	# -------------------------------------------------------------------
 	# Internal lifecycle events
@@ -2772,9 +2758,6 @@ class Plugin(PatchbayClient):
 		Called after post_embed_init() and all ports ready.
 		You can check the state of this plugin using the "Plugin.is_ready" property.
 		"""
-		logging.debug('%s ready', self)
-		if self._cb_ready is not None:
-			self._cb_ready()
 
 	def remove(self):
 		"""
@@ -2898,10 +2881,8 @@ class Plugin(PatchbayClient):
 
 	def got_removed(self):
 		"""
-		Function called from Carla host engine when this Plugin got removed.
+		Function called from Carla host engine when this Plugin has been removed.
 		"""
-		if self._cb_removed is not None:
-			self._cb_removed()
 
 	def parameter_internal_value_changed(self, parameter, value):
 		"""
@@ -3161,6 +3142,48 @@ class Plugin(PatchbayClient):
 			self.dry_wet = 0
 		else:
 			self.dry_wet = self._unbypass_wet
+
+
+class Plugin(_Plugin):
+	"""
+	An abstraction of a carla plugin.
+
+	You must provide a plugin definition either by declaring the "plugin_def"
+	member in a derived class, or by passing a "plugin_def" to the constructor.
+	Plugin definitions may be discoverd by using the "plugin_dialog.py" script,
+	found in the "tests/" folder.
+	"""
+	_cb_ready			= None
+	_cb_removed			= None
+
+	def on_ready(self, callback):
+		"""
+		Sets the function to be called when this plugin is ready.
+		"""
+		self._cb_ready = callback
+
+	def on_removed(self, callback):
+		"""
+		Sets the function to be called when this plugin is removed.
+		"""
+		self._cb_removed = callback
+
+	def ready(self):
+		"""
+		Called after post_embed_init() and all ports ready.
+		You can check the state of this plugin using the "is_ready" property.
+		The callback set with the "on_ready" function is called here.
+		"""
+		if self._cb_ready is not None:
+			self._cb_ready()
+
+	def got_removed(self):
+		"""
+		Function called from Carla host engine when this Plugin got removed.
+		The callback set with the "on_removed" function is called here.
+		"""
+		if self._cb_removed is not None:
+			self._cb_removed()
 
 
 class Parameter:
