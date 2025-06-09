@@ -1581,6 +1581,12 @@ class _SimpleCarla(CarlaHostDLL):
 			return  self._clients[client_id]
 		raise IndexError()
 
+	def named_client(self, client_name):
+		for client in self._clients.values():
+			if client.client_name == client_name:
+				return client
+		raise IndexError()
+
 	def clients(self):
 		"""
 		Returns a list of PatchbayClient.
@@ -2073,9 +2079,11 @@ class PatchbayClient:
 
 	Members of interest
 	-------------------
-		client_id:		(int)	Assigned by Carla
-		client_name:	(str)	JACK client name (i.e. "system")
-		moniker:		(str)	May be client name, or assigned by other.
+	ports:        (dict)  PatchbayPort objects indexed on port_id
+	client_id:    (int)   Assigned by Carla
+	client_name:  (str)   JACK client name (i.e. "system")
+	moniker:      (str)   May be client name, or assigned by other.
+	-------------------
 	"""
 
 	def __init__(self):
@@ -2092,7 +2100,9 @@ class PatchbayClient:
 		self.client_name = new_client_name
 
 	def client_removed(self):
-		pass
+		"""
+		Called from Carla when this client is removed.
+		"""
 
 	def port_added(self, port_id, port_flags, group_id, port_name):
 		"""
@@ -2108,12 +2118,18 @@ class PatchbayClient:
 
 	def input_connection_change(self, connection, state):
 		"""
-		Called from the Carla host.
+		Called from the Carla host when a connection to one of this client's input
+		ports is either made or broken.
+		When "state" is boolean True, the connection was made.
+		When "state" is boolean False, the connection was broken.
 		"""
 
 	def output_connection_change(self, connection, state):
 		"""
-		Called from the Carla host.
+		Called from the Carla host when a connection to one of this client's output
+		ports is either made or broken.
+		When "state" is boolean True, the connection was made.
+		When "state" is boolean False, the connection was broken.
 		"""
 
 	# -------------------------------------------------------------------
@@ -2224,49 +2240,57 @@ class PatchbayClient:
 
 	def input_ports(self):
 		"""
-		Returns list of PatchbayPort.
+		Returns list of PatchbayPort;
+		all ports owned by this client if the port is an input.
 		"""
 		return [ port for port in self.ports.values() if port.is_input ]
 
 	def output_ports(self):
 		"""
-		Returns list of PatchbayPort.
+		Returns list of PatchbayPort;
+		all ports owned by this client if the port is an output.
 		"""
 		return [ port for port in self.ports.values() if port.is_output ]
 
 	def audio_ins(self):
 		"""
-		Returns list of PatchbayPort.
+		Returns list of PatchbayPort;
+		all ports owned by this client if the port is an audio input.
 		"""
 		return [ port for port in self.ports.values() if port.is_audio and port.is_input ]
 
 	def audio_outs(self):
 		"""
-		Returns list of PatchbayPort.
+		Returns list of PatchbayPort;
+		all ports owned by this client if the port is an audio output.
 		"""
 		return [ port for port in self.ports.values() if port.is_audio and port.is_output ]
 
 	def midi_ins(self):
 		"""
-		Returns list of PatchbayPort.
+		Returns list of PatchbayPort;
+		all ports owned by this client if the port is a midi input.
 		"""
 		return [ port for port in self.ports.values() if port.is_midi and port.is_input ]
 
 	def midi_outs(self):
 		"""
-		Returns list of PatchbayPort.
+		Returns list of PatchbayPort;
+		all ports owned by this client if the port is a midi output.
 		"""
 		return [ port for port in self.ports.values() if port.is_midi and port.is_output ]
 
 	def cv_ins(self):
 		"""
-		Returns list of PatchbayPort.
+		Returns list of PatchbayPort;
+		all ports owned by this client if the port is a control value input.
 		"""
 		return [ port for port in self.ports.values() if port.is_cv and port.is_input ]
 
 	def cv_outs(self):
 		"""
-		Returns list of PatchbayPort.
+		Returns list of PatchbayPort;
+		all ports owned by this client if the port is a control value output.
 		"""
 		return [ port for port in self.ports.values() if port.is_cv and port.is_output ]
 
@@ -2275,7 +2299,8 @@ class PatchbayClient:
 
 	def midi_input_port(self):
 		"""
-		Returns PatchbayPort.
+		Returns PatchbayPort;
+		the first midi input port owned by this client.
 		"""
 		for port in self.ports.values():
 			if port.is_midi and port.is_input:
@@ -2284,12 +2309,14 @@ class PatchbayClient:
 
 	def named_port(self, port_name):
 		"""
-		Returns PatchbayPort.
+		Returns PatchbayPort;
+		the port owned by this client whose "port_name" matches exactly.
+		Note that the name does NOT include the client_name portion.
 		"""
 		for port in self.ports.values():
 			if port.port_name == port_name:
 				return port
-		return None
+		raise IndexError
 
 	def input_clients(self):
 		"""
@@ -2329,14 +2356,14 @@ class PatchbayClient:
 	def input_connections(self):
 		"""
 		Returns a list of PatchbayConnection
-		Returns all connections to all input ports.
+		Returns all connections to all of this client's input ports.
 		"""
 		return self._connections_to_ports(self.input_ports())
 
 	def output_connections(self):
 		"""
 		Returns a list of PatchbayConnection
-		Returns all connections to all output ports.
+		Returns all connections to all of this client's output ports.
 		"""
 		return self._connections_to_ports(self.output_ports())
 
@@ -2401,6 +2428,19 @@ class PatchbayPort:
 	"""
 	Represents a JACK port, owned by a PatchbayClient.
 	Owned by classes extending PatchbayClient, i.e. SystemPatchbayClient / Plugin.
+
+	Members of interest
+	-------------------
+	client_id  (int)   Assigned by Carla
+	port_id    (int)   Assigned by Carla
+	is_audio   (bool)
+	is_midi    (bool)
+	is_cv      (bool)
+	is_osc     (bool)
+	is_input   (bool)
+	is_output  (bool)
+	port_name  (str)   Part of the jack port name.
+	-------------------
 	"""
 
 	def __init__(self, client_id, port_id, port_flags, group_id, port_name):
@@ -2467,13 +2507,13 @@ class PatchbayPort:
 
 	def client_name(self):
 		"""
-		Returns (str) the JACK client name of the PatchbayClient which "owns" this PatchbayPort.1
+		Returns (str) the JACK client name of the PatchbayClient which "owns" this PatchbayPort.
 		"""
 		return self.client().client_name
 
 	def jack_name(self):
 		"""
-		Returns str (client moniker + this port's name in format that JACK uses)
+		Returns (str) fully qualified name in the format that JACK uses.
 		"""
 		return "{0}:{1}".format(self.client().client_name, self.port_name)
 
