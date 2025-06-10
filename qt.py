@@ -311,6 +311,7 @@ class QtPlugin(Plugin, QObject):
 	def __init__(self, plugin_def=None, saved_state=None):
 		QObject.__init__(self)
 		Plugin.__init__(self, plugin_def, saved_state)
+		self.was_removed = False
 
 	def ready(self):
 		"""
@@ -321,13 +322,16 @@ class QtPlugin(Plugin, QObject):
 		self.sig_ready.emit(self)
 
 	def got_removed(self):
+		self.was_removed = True
 		self.sig_removed.emit(self)
 
 	def input_connection_change(self, connection, state):
-		self.sig_connection_change.emit(connection.in_port, connection.out_port, state)
+		if not self.was_removed:
+			self.sig_connection_change.emit(connection.in_port, connection.out_port, state)
 
 	def output_connection_change(self, connection, state):
-		self.sig_connection_change.emit(connection.out_port, connection.in_port, state)
+		if not self.was_removed:
+			self.sig_connection_change.emit(connection.out_port, connection.in_port, state)
 
 
 #  end simple_carla/qt.py

@@ -2812,7 +2812,7 @@ class Plugin(PatchbayClient):
 		if self._cb_ready is not None:
 			self._cb_ready()
 
-	def remove(self):
+	def remove_from_carla(self):
 		"""
 		Removes this plugin from Carla.
 
