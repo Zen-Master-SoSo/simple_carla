@@ -136,6 +136,7 @@ from carla_backend import (
 	# Transport modes
 	ENGINE_TRANSPORT_MODE_JACK,
 	ENGINE_TRANSPORT_MODE_INTERNAL,
+	ENGINE_TRANSPORT_MODE_DISABLED,
 
 	# Process modes
 	ENGINE_PROCESS_MODE_MULTIPLE_CLIENTS,
@@ -1440,9 +1441,7 @@ class _SimpleCarla(CarlaHostDLL):
 			client.client_removed()
 			if client.client_name in self._sys_clients:
 				del self._sys_clients[client.client_name]
-				logging.debug('cb_patchbay_client_removed: Client "%s" was removed from _sys_clients', client)
 			del self._clients[client_id]
-			logging.debug('cb_patchbay_client_removed: Client %s', client)
 		else:
 			logging.warning('cb_patchbay_client_removed: Client removed (%s) not in _clients', client_id)
 
