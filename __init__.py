@@ -1623,7 +1623,7 @@ class _SimpleCarla(CarlaHostDLL):
 		Generator which yields SystemPatchbayClient
 		"""
 		for client in self._sys_clients.values():
-			if client.audio_in_count() > 0:
+			if client.audio_in_count > 0:
 				yield client
 
 	def system_audio_out_clients(self):
@@ -1631,7 +1631,7 @@ class _SimpleCarla(CarlaHostDLL):
 		Generator which yields SystemPatchbayClient
 		"""
 		for client in self._sys_clients.values():
-			if client.audio_out_count() > 0:
+			if client.audio_out_count > 0:
 				yield client
 
 	def system_audio_in_ports(self):
@@ -1655,7 +1655,7 @@ class _SimpleCarla(CarlaHostDLL):
 		Generator which yields SystemPatchbayClient
 		"""
 		for client in self._sys_clients.values():
-			if client.midi_in_count() > 0:
+			if client.midi_in_count > 0:
 				yield client
 
 	def system_midi_out_clients(self):
@@ -1663,7 +1663,7 @@ class _SimpleCarla(CarlaHostDLL):
 		Generator which yields SystemPatchbayClient
 		"""
 		for client in self._sys_clients.values():
-			if client.midi_out_count() > 0:
+			if client.midi_out_count > 0:
 				yield client
 
 	def system_midi_in_ports(self):
@@ -2407,15 +2407,19 @@ class SystemPatchbayClient(PatchbayClient):
 		self.client_name	= client_name
 		self.moniker		= client_name
 
+	@property
 	def audio_in_count(self):
 		return len(self.audio_ins())
 
+	@property
 	def audio_out_count(self):
 		return len(self.audio_outs())
 
+	@property
 	def midi_in_count(self):
 		return len(self.midi_ins())
 
+	@property
 	def midi_out_count(self):
 		return len(self.midi_outs())
 
@@ -2857,29 +2861,47 @@ class Plugin(PatchbayClient):
 	# -------------------------------------------------------------------
 	# Misc functions
 
+	@property
 	def audio_in_count(self):
 		"""
 		Returns (int)
 		"""
 		return self._audio_in_count
 
+	@property
 	def audio_out_count(self):
 		"""
 		Returns (int)
 		"""
 		return self._audio_out_count
 
+	@property
 	def midi_in_count(self):
 		"""
 		Returns (int)
 		"""
 		return self._midi_in_count
 
+	@property
 	def midi_out_count(self):
 		"""
 		Returns (int)
 		"""
 		return self._midi_out_count
+
+	@property
+	def input_parameter_count(self):
+		"""
+		Returns (int)
+		"""
+		return len(self.input_parameters())
+
+	@property
+	def output_parameter_count(self):
+		"""
+		Returns (int)
+		"""
+		return len(self.output_parameters())
 
 	def input_parameters(self):
 		"""
