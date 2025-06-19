@@ -107,7 +107,8 @@ class CarlaQt(_SimpleCarla, QObject):
 		try:
 
 			if action == ENGINE_CALLBACK_INLINE_DISPLAY_REDRAW:
-				return self.cb_inline_display_redraw(plugin_id)
+				#return self.cb_inline_display_redraw(plugin_id)
+				return None
 
 			if action == ENGINE_CALLBACK_DEBUG:
 				return self.cb_debug(plugin_id, value_1, value_2, value_3, float_val, string_val)
