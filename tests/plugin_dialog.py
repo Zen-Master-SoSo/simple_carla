@@ -38,7 +38,6 @@ if __name__ == "__main__":
 	p.add_argument("--verbose", "-v", action="store_true", help="Show more detailed debug information")
 	options = p.parse_args()
 	logging.basicConfig(
-		stream = sys.stdout,
 		level = logging.DEBUG if options.verbose else logging.ERROR,
 		format = "[%(filename)24s:%(lineno)-4d] %(levelname)-8s %(message)s"
 	)
