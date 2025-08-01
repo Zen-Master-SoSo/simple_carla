@@ -2,13 +2,28 @@
 #
 #  Copyright 2024 liyang <liyang@veronica>
 #
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#  MA 02110-1301, USA.
+#
+"""
+Qt -enabled classes which utilize signals rather than callbacks.
+"""
 import logging, traceback, os, sys
-
-# PyQt5 imports
+import qt_extras.autofit
 from PyQt5.QtCore import QObject, pyqtSignal
-from simple_carla import _SimpleCarla, Plugin, PatchbayClient, PatchbayPort, PatchbayConnection, carla_paths
-binpath, respath = carla_paths()
-sys.path.append(respath)
+from simple_carla import _SimpleCarla, Plugin, PatchbayClient, PatchbayPort
 
 from carla_backend import (
 
@@ -100,7 +115,7 @@ class CarlaQt(_SimpleCarla, QObject):
 	# Engine callback
 	# -----------------------------
 
-	def engine_callback(self, handle, action, plugin_id, value_1, value_2, value_3, float_val, string_val):
+	def engine_callback(self, _, action, plugin_id, value_1, value_2, value_3, float_val, string_val):
 
 		string_val = charPtrToString(string_val)
 
@@ -262,7 +277,7 @@ class CarlaQt(_SimpleCarla, QObject):
 
 		except Exception as e:
 			print(traceback.format_exc())
-			exc_type, exc_obj, exc_tb = sys.exc_info()
+			exc_type, _, exc_tb = sys.exc_info()
 			fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
 			self.sig_application_error.emit(exc_type.__name__, str(e), fname, exc_tb.tb_lineno)
 

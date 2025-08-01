@@ -2,36 +2,46 @@
 #
 #  Copyright 2024 liyang <liyang@veronica>
 #
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#  MA 02110-1301, USA.
+#
+"""
+An easy-to-use, object-oriented interface to the carla plugin host.
+"""
 import os, sys, threading, time, logging, traceback
 from ctypes import byref, cast, c_char_p, c_void_p, POINTER
-from functools import wraps
+from functools import wraps, cache
 from struct import pack
 from numpy import zeros as np_zeros
-from good_logging import StreamToLogger
-import qt_extras.autofit
+from log_soso import StreamToLogger
 
-
-def carla_paths():
-	"""
-	System -independent path detection
-	returns carla_binaries_path, carla_resources_path
-	"""
-	if os.path.exists('/usr/local/lib/carla'):
-		carla_binaries_path = '/usr/local/lib/carla'
-	elif os.path.exists('/usr/lib/carla'):
-		carla_binaries_path = '/usr/lib/carla'
-	else:
-		raise FileNotFoundError(f"Carla binaries not found")
-	if os.path.exists('/usr/local/share/carla'):
-		carla_resources_path = '/usr/local/share/carla'
-	elif os.path.exists('/usr/share/carla'):
-		carla_resources_path = '/usr/share/carla'
-	else:
-		raise FileNotFoundError(f"Carla resources not found")
-	return carla_binaries_path, carla_resources_path
-
-binpath, respath = carla_paths()
-sys.path.append(respath)
+# --- discover carla paths before importing carla resources ---
+if os.path.exists('/usr/local/lib/carla'):
+	carla_binaries_path = '/usr/local/lib/carla'
+elif os.path.exists('/usr/lib/carla'):
+	carla_binaries_path = '/usr/lib/carla'
+else:
+	raise FileNotFoundError(f"Carla binaries not found")
+if os.path.exists('/usr/local/share/carla'):
+	carla_resources_path = '/usr/local/share/carla'
+elif os.path.exists('/usr/share/carla'):
+	carla_resources_path = '/usr/share/carla'
+else:
+	raise FileNotFoundError(f"Carla resources not found")
+sys.path.append(carla_resources_path)			# Ugh. I know.
+# -------------------------------------------------------------
 
 from carla_utils import getPluginTypeAsString
 
@@ -224,6 +234,9 @@ from carla_backend import (
 )
 
 
+__version__ = "1.0.0"
+
+
 # -------------------------------------------------------------------
 # Decorator which forces a function call to wait for engine idle
 
@@ -233,7 +246,6 @@ def polite_function(func):
 	"""
 	Decorator to synchronize function calls and engine idle
 	"""
-	global _engine_exclusive
 	@wraps(func)
 	def wrapper(*args, **kwargs):
 		with _engine_exclusive:
@@ -303,7 +315,7 @@ class _SimpleCarla(CarlaHostDLL):
 			self._plugin_by_uuid	= {}	# Plugin, indexed on "uuid", used for identifying plugin during instantiation
 			self._uuid				= 0		# Current "uuid", incremented sequentially
 			libname = "libcarla_standalone2.so"
-			CarlaHostDLL.__init__(self, os.path.join(binpath, libname), False)
+			CarlaHostDLL.__init__(self, os.path.join(carla_binaries_path, libname), False)
 
 			self._run_idle_loop = False
 			self._engine_callback = EngineCallbackFunc(self.engine_callback)
@@ -326,8 +338,8 @@ class _SimpleCarla(CarlaHostDLL):
 			self.processModeForced = True
 			self.showLogs = False
 
-			self.set_engine_option(ENGINE_OPTION_PATH_BINARIES, 0, binpath)
-			self.set_engine_option(ENGINE_OPTION_PATH_RESOURCES, 0, respath)
+			self.set_engine_option(ENGINE_OPTION_PATH_BINARIES, 0, carla_binaries_path)
+			self.set_engine_option(ENGINE_OPTION_PATH_RESOURCES, 0, carla_resources_path)
 			self.set_engine_option(ENGINE_OPTION_AUDIO_DRIVER, 0, self.audioDriverForced)
 			self.set_engine_option(ENGINE_OPTION_FORCE_STEREO, self.forceStereo, "")
 			self.set_engine_option(ENGINE_OPTION_RESET_XRUNS, self.resetXruns, "")
@@ -382,7 +394,6 @@ class _SimpleCarla(CarlaHostDLL):
 		raise NotImplementedError()
 
 	def __engine_idle(self):
-		global _engine_exclusive
 		next_run_time = time.time()
 		while self._run_idle_loop:
 			with _engine_exclusive:
@@ -2587,6 +2598,9 @@ class PatchbayPort:
 
 
 class PatchbayConnection:
+	"""
+	Tracks a connection by holding a reference to the in/out ports.
+	"""
 
 	def __init__(self, connection_id, out_port, in_port):
 		self.connection_id = connection_id
@@ -2604,6 +2618,9 @@ class PatchbayConnection:
 		}
 
 	def disconnect(self):
+		"""
+		Disconnects - this object will be deleted when carla registers the disconnection.
+		"""
 		if not Carla.instance.patchbay_disconnect(True, self.connection_id):
 			logging.error('Patchbay disconnect failed %s -> %s',
 				self.out_port, self.in_port)
@@ -2653,10 +2670,10 @@ class Plugin(PatchbayClient):
 				raise RuntimeError("No definition for plugin")
 		else:
 			self.plugin_def			= plugin_def
+		super().__init__()
 		self.saved_state			= saved_state
 		self.original_plugin_name	= self.plugin_def['name']
 		self.plugin_id				= None
-		self.client_id				= None
 		self.moniker				= None
 		self.ports_ready			= False
 		self.added_to_carla			= False
@@ -2675,7 +2692,6 @@ class Plugin(PatchbayClient):
 		self._unmute_volume			= 1.0
 		self._unbypass_wet			= 1.0
 		self.parameters				= {}								# Parameter objects. Key is parameter_id.
-		self.ports					= {}
 		self._midi_notes			= np_zeros((16, 128), dtype=bool)	# array for determining whether midi active.
 
 		if saved_state is None:
@@ -2691,7 +2707,7 @@ class Plugin(PatchbayClient):
 		"""
 		if self.added_to_carla:
 			raise RuntimeWarning(f'Plugin {self} already added to Carla')
-			self.added_to_carla = True
+		self.added_to_carla = True
 		Carla.instance.add_plugin(self)
 
 	def post_embed_init(self, plugin_id):
@@ -2844,7 +2860,7 @@ class Plugin(PatchbayClient):
 		return {
 			"plugin_def"	: self.plugin_def,
 			"vars"			: encode_properties(self, self._save_state_keys),
-			"parameters"	: { key:self.parameters[key].value for key in self.parameters if self.parameters[key].is_used }
+			"parameters"	: { key:param.value for key, param in self.parameters.items() if param.is_used }
 		}
 
 	def restore_saved_state(self):

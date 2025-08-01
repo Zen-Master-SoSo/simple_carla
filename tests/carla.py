@@ -3,8 +3,9 @@
 #  Copyright 2024 liyang <liyang@veronica>
 #
 import logging
-from simple_carla import Carla, Plugin
 from time import sleep
+from PyQt5.QtCore import QCoreApplication
+from simple_carla import Carla, Plugin
 
 APPLICATION_NAME = 'simple_carla'
 
@@ -84,7 +85,6 @@ class EBUMeter(Plugin):
 
 
 if __name__ == "__main__":
-	from PyQt5.QtCore import QCoreApplication
 	logging.basicConfig(
 		level = logging.DEBUG,
 		format = "[%(filename)24s:%(lineno)-4d] %(message)s"

@@ -8,9 +8,7 @@ Provides a means to use Carla's plugin dialog to compile a plugin's
 loading the plugin.
 """
 import sys, os
-from simple_carla import carla_paths
-binpath, respath = carla_paths()
-sys.path.append(respath)
+from simple_carla import carla_binaries_path
 from carla_frontend import CarlaFrontendLib
 from carla_shared import DLL_EXTENSION
 
@@ -31,7 +29,7 @@ class CarlaPluginDialog():
 
 	def __init__(self, parent):
 		if self._carla_felib is None:
-			felib_path = os.path.join(binpath, 'libcarla_frontend.so')
+			felib_path = os.path.join(carla_binaries_path, 'libcarla_frontend.so')
 			self._carla_felib = CarlaFrontendLib(felib_path)
 			self._plugin_list_dialog = self._carla_felib.createPluginListDialog(parent, {
 				'showPluginBridges': False,
