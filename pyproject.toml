@@ -5,7 +5,7 @@ readme = "README.md"
 license = {file = "LICENSE"}
 classifiers = ["License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)"]
 dynamic = ["version", "description"]
-dependencies = ["numpy", "log_soso", "PyQt5", "soso_qt_extras >= 1.1.0"]
+dependencies = ["numpy", "log_soso", "PyQt5", "soso_qt_extras >= 1.2.0"]
 
 [project.urls]
 Home = "https://github.com/Zen-Master-SoSo/simple_carla"
