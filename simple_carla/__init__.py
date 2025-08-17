@@ -355,16 +355,6 @@ class _SimpleCarla(CarlaHostDLL):
 			self.set_engine_option(ENGINE_OPTION_CLIENT_NAME_PREFIX, 0, self.client_name)
 
 	# -------------------------------------------------------------------
-	# Save state (pathcbay connections)
-
-	def encode_saved_state(self):
-		"""
-		Return an object comprised of only basic data types for serialization as JSON
-		in prepration for saving the current project.
-		"""
-		return [ conn.encode_saved_state() for conn in self._connections.values() ]
-
-	# -------------------------------------------------------------------
 	# Engine control / idle loop
 
 	def engine_init(self, driver_name = 'JACK'):
@@ -700,7 +690,8 @@ class _SimpleCarla(CarlaHostDLL):
 		Remove a plugin.
 		plugin_id:		Plugin to remove.
 		"""
-		return bool(self.lib.carla_remove_plugin(self.handle, plugin_id))
+		if not self.lib.carla_remove_plugin(self.handle, plugin_id):
+			raise RuntimeError('Carla will not remove plugin')
 
 	@polite_function
 	def remove_all_plugins(self):
@@ -1515,6 +1506,7 @@ class _SimpleCarla(CarlaHostDLL):
 		in_port.connection_added(connection)
 		out_client.output_connection_change(connection, True)
 		in_client.input_connection_change(connection, True)
+		self._alert_connection_added(connection)
 
 	def cb_patchbay_connection_removed(self, connection_id, zero_1, zero_2):
 		"""
@@ -1526,6 +1518,7 @@ class _SimpleCarla(CarlaHostDLL):
 			connection.in_port.connection_removed(connection)
 			self._clients[connection.out_port.client_id].output_connection_change(connection, False)
 			self._clients[connection.in_port.client_id].input_connection_change(connection, False)
+			self._alert_connection_removed(connection)
 			del self._connections[connection_id]
 		else:
 			logging.warning('cb_patchbay_connection_removed: Connection %s not in ._connections',
@@ -1789,6 +1782,8 @@ class Carla(_SimpleCarla):
 	_cb_client_removed			= None
 	_cb_port_added				= None
 	_cb_port_removed			= None
+	_cb_connection_added		= None
+	_cb_connection_removed		= None
 	_cb_plugin_removed			= None
 	_cb_last_plugin_removed		= None
 	_cb_engine_started			= None
@@ -1818,6 +1813,12 @@ class Carla(_SimpleCarla):
 
 	def on_port_removed(self, callback):
 		self._cb_port_removed = callback
+
+	def on_connection_added(self, callback):
+		self._cb_connection_added = callback
+
+	def on_connection_removed(self, callback):
+		self._cb_connection_removed = callback
 
 	def on_plugin_removed(self, callback):
 		self._cb_plugin_removed = callback
@@ -2071,6 +2072,14 @@ class Carla(_SimpleCarla):
 		if self._cb_port_removed is not None:
 			self._cb_port_removed(port)
 
+	def _alert_connection_added(self, connection):
+		if self._cb_connection_added is not None:
+			self._cb_connection_added(connection)
+
+	def _alert_connection_removed(self, connection):
+		if self._cb_connection_removed is not None:
+			self._cb_connection_removed(connection)
+
 	def _alert_plugin_removed(self, plugin):
 		if self._cb_plugin_removed is not None:
 			self._cb_plugin_removed(plugin)
@@ -2086,6 +2095,9 @@ class Carla(_SimpleCarla):
 class PatchbayClient:
 	"""
 	Patchbay client which has patchbay ports.
+
+	This class is not instantiated directly, but is inherited by
+	SystemPatchbayClient and Plugin
 
 	Members of interest
 	-------------------
@@ -2517,12 +2529,14 @@ class PatchbayPort:
 		Returns PatchbayClient.
 		(May return class extending PatchbayClient, i.e. SystemPatchbayClient / Plugin)
 		"""
+		# TODO: Make this a cached property
 		return Carla.instance.client(self.client_id)
 
 	def client_name(self):
 		"""
 		Returns (str) the JACK client name of the PatchbayClient which "owns" this PatchbayPort.
 		"""
+		# TODO: Make this a property
 		return self.client().client_name
 
 	def jack_name(self):
@@ -2677,6 +2691,7 @@ class Plugin(PatchbayClient):
 		self.moniker				= None
 		self.ports_ready			= False
 		self.added_to_carla			= False
+		self.removing_from_carla	= False
 		self.is_ready				= False
 		self.can_drywet				= False
 		self.can_volume				= False
@@ -2838,6 +2853,7 @@ class Plugin(PatchbayClient):
 
 		(See also "got_removed")
 		"""
+		self.removing_from_carla = True
 		Carla.instance.remove_plugin(self.plugin_id)
 
 	def plugin_id_changed(self, new_plugin_id):
@@ -2871,7 +2887,7 @@ class Plugin(PatchbayClient):
 		for key, value in self.saved_state["vars"].items():
 			setattr(self, key, value)
 		for key, value in self.saved_state["parameters"].items():
-			if not value is None:
+			if not value is None and int(key) in self.parameters:
 				self.parameters[int(key)].value = value
 
 	# -------------------------------------------------------------------

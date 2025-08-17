@@ -23,7 +23,7 @@ Qt -enabled classes which utilize signals rather than callbacks.
 import logging, traceback, os, sys
 import qt_extras.autofit
 from PyQt5.QtCore import QObject, pyqtSignal
-from simple_carla import _SimpleCarla, Plugin, PatchbayClient, PatchbayPort
+from simple_carla import _SimpleCarla, Plugin, PatchbayClient, PatchbayPort, PatchbayConnection
 
 from carla_backend import (
 
@@ -92,6 +92,8 @@ class CarlaQt(_SimpleCarla, QObject):
 	sig_patchbay_client_removed = pyqtSignal(PatchbayClient)
 	sig_patchbay_port_added = pyqtSignal(PatchbayPort)
 	sig_patchbay_port_removed = pyqtSignal(PatchbayPort)
+	sig_connection_added = pyqtSignal(PatchbayConnection)
+	sig_connection_removed = pyqtSignal(PatchbayConnection)
 	sig_plugin_removed = pyqtSignal(QObject)
 	sig_last_plugin_removed = pyqtSignal()
 	sig_engine_started = pyqtSignal(int, int, int, int, float, str)
@@ -298,6 +300,12 @@ class CarlaQt(_SimpleCarla, QObject):
 	def _alert_port_removed(self, port):
 		self.sig_patchbay_port_removed.emit(port)
 
+	def _alert_connection_added(self, connection):
+		self.sig_connection_added.emit(connection)
+
+	def _alert_connection_removed(self, connection):
+		self.sig_connection_removed.emit(connection)
+
 	def _alert_plugin_removed(self, plugin):
 		self.sig_plugin_removed.emit(plugin)
 
@@ -327,26 +335,23 @@ class QtPlugin(Plugin, QObject):
 	def __init__(self, plugin_def=None, saved_state=None):
 		QObject.__init__(self)
 		Plugin.__init__(self, plugin_def, saved_state)
-		self.was_removed = False
 
 	def ready(self):
 		"""
 		Called after post_embed_init() and all ports ready.
 		You can check the state of this plugin using the "Plugin.is_ready" property.
 		"""
-		#logging.debug('%s ready', self)
 		self.sig_ready.emit(self)
 
 	def got_removed(self):
-		self.was_removed = True
 		self.sig_removed.emit(self)
 
 	def input_connection_change(self, connection, state):
-		if not self.was_removed:
+		if not self.removing_from_carla:
 			self.sig_connection_change.emit(connection.in_port, connection.out_port, state)
 
 	def output_connection_change(self, connection, state):
-		if not self.was_removed:
+		if not self.removing_from_carla:
 			self.sig_connection_change.emit(connection.out_port, connection.in_port, state)
 
 
