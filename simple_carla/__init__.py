@@ -698,6 +698,8 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		Remove all plugins.
 		"""
+		for plugin in self._plugin_by_uuid.values():
+			plugin.removing_from_carla = True
 		return bool(self.lib.carla_remove_all_plugins(self.handle))
 
 	@polite_function
@@ -2891,7 +2893,7 @@ class Plugin(PatchbayClient):
 				self.parameters[int(key)].value = value
 
 	# -------------------------------------------------------------------
-	# Misc functions
+	# Port parameter counts
 
 	@property
 	def audio_in_count(self):
@@ -3227,7 +3229,7 @@ class Plugin(PatchbayClient):
 		self._ctrl_channel = value
 
 	# -------------------------------------------------------------------
-	# Functions called from GUI
+	# Functions called from outside
 
 	def mute(self):
 		"""
