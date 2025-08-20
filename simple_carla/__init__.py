@@ -22,7 +22,7 @@ An easy-to-use, object-oriented interface to the carla plugin host.
 """
 import os, sys, threading, time, logging, traceback
 from ctypes import byref, cast, c_char_p, c_void_p, POINTER
-from functools import wraps, cache
+from functools import wraps
 from struct import pack
 from numpy import zeros as np_zeros
 from log_soso import StreamToLogger
