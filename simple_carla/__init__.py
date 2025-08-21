@@ -233,8 +233,6 @@ from carla_backend import (
 	FILE_CALLBACK_SAVE
 )
 
-from resources_rc import qCleanupResources
-
 
 __version__ = "1.4.1"
 
@@ -285,8 +283,9 @@ class _SimpleCarla(CarlaHostDLL):
 	idle_interval		= 1 / 50
 	instance			= None
 	client_name			= None
-	__autoload_plugin	= None
-	__autoload_filename	= None
+	_autoload_plugin	= None
+	_autoload_filename	= None
+	_cptr_filename		= None # Pointer which is held onto so as not to get segfaults
 
 	# -------------------------------------------------------------------
 	# Singleton instantiation
@@ -295,14 +294,6 @@ class _SimpleCarla(CarlaHostDLL):
 		if cls.instance is None:
 			cls.instance = Carla.instance = super().__new__(cls)
 		return cls.instance
-
-	@classmethod
-	def delete(cls):
-		"""
-		Close the engine and delete the current instance to avoid hanging when exiting.
-		"""
-		cls.instance.engine_close()
-		cls.instance = Carla.instance = None
 
 	def __init__(self, client_name):
 		"""
@@ -324,6 +315,8 @@ class _SimpleCarla(CarlaHostDLL):
 			self.lib.carla_set_engine_callback(self.handle, self._engine_callback, None)
 			self._file_callback = FileCallbackFunc(self.file_callback)
 			self.lib.carla_set_file_callback(self.handle, self._file_callback, None)
+			self._open_file_callback = None
+			self._save_file_callback = None
 
 			self.audioDriverForced = "JACK"
 			self.forceStereo = False
@@ -356,6 +349,14 @@ class _SimpleCarla(CarlaHostDLL):
 			self.set_engine_option(ENGINE_OPTION_DEBUG_CONSOLE_OUTPUT, self.showLogs, "")
 			self.set_engine_option(ENGINE_OPTION_CLIENT_NAME_PREFIX, 0, self.client_name)
 
+	@classmethod
+	def delete(cls):
+		"""
+		Close the engine and delete the current instance to avoid hanging when exiting.
+		"""
+		cls.instance.engine_close()
+		cls.instance = Carla.instance = None
+
 	# -------------------------------------------------------------------
 	# Engine control / idle loop
 
@@ -371,13 +372,6 @@ class _SimpleCarla(CarlaHostDLL):
 			self.__engine_idle_thread.start()
 			return True
 		return False
-
-	def set_ui_parent(self, window):
-		"""
-		Set the parent window of dialogs opened by the Carla engine.
-		Not needed if the file open dialog will not be needed.
-		"""
-		self._file_callback_parent = window
 
 	def engine_idle(self):
 		"""
@@ -1720,34 +1714,74 @@ class _SimpleCarla(CarlaHostDLL):
 		liquidsfz does not have an input file parameter, but instead, requests the host to display an open file dialog from which the user may select an SFZ file to load. This function triggers the plugin's host gui display which will call __file_callback(). When there is a plugin to autoload on deck, __file_callback() will return the "autoload_filename" property of the plugin, instead of showing the file open dialog and returning the result.
 
 		"""
-		if self.__autoload_plugin is not None:
-			raise Exception("Cannot set autoload plugin as it is already used by " + self.__autoload_plugin)
-		self.__autoload_plugin = plugin
-		self.__autoload_filename = filename
+		if self._autoload_plugin is not None:
+			raise Exception("Cannot set autoload plugin as it is already used by " + self._autoload_plugin)
+		self._autoload_plugin = plugin
+		self._autoload_filename = filename
 		#logging.debug('Autoloading "%s"', filename)
 		self.show_custom_ui(plugin.plugin_id, True)
-		self.__autoload_plugin = None
-		self.__autoload_filename = None
+		self._autoload_plugin = None
+		self._autoload_filename = None
 		if callable(callback):
 			callback()
 
-	def file_callback(self, ptr, action, is_dir, title, filter):
-		if self.__autoload_plugin is None:
-			if self._file_callback_parent is None:
-				raise Exception("Cannot open file dialog without parent window (see Carla.set_ui_parent)")
-			title  = charPtrToString(title)
+	def set_open_file_callback(self, callback):
+		"""
+		Set the callback function that Carla will call when it needs a file name.
+
+		The callback must have this signature:
+
+			def funct(self, caption: str, filter: str)
+
+		A typical implementation in Qt might be:
+
+			carla.set_open_file_callback(self.open_file_dialog)
+
+			def open_file_dialog(self, caption, filter):
+				filename, ok = QFileDialog.getOpenFileName(self, caption, "", filter)
+				return filename if ok else None
+
+		"""
+		self._open_file_callback = callback
+
+	def set_save_file_callback(self, callback):
+		"""
+		Set the callback function that Carla will call when it needs a file name.
+
+		The callback must have this signature:
+
+			def funct(self, caption: str, filter: str, dirs_only: bool)
+
+		A typical implementation in Qt might be:
+
+			carla.set_save_file_callback(self.save_file_dialog)
+
+			def save_file_dialog(self, caption, filter):
+				filename, ok = QFileDialog.getOpenFileName(self, caption, "", filter)
+				return filename if ok else None
+
+		"""
+		self._save_file_callback = callback
+
+	def file_callback(self, ptr, action, dirs_only, caption, filter):
+		if self._autoload_plugin is None:
+			caption  = charPtrToString(caption)
 			filter = charPtrToString(filter)
 			if action == FILE_CALLBACK_OPEN:
-				ret, ok = QFileDialog.getOpenFileName(self._file_callback_parent, title, "", filter)
+				if self._open_file_callback is None:
+					raise RuntimeError('Carla wants to open a file, but no callback function is defined')
+				str_filename = self._open_file_callback(caption, filter)
 			elif action == FILE_CALLBACK_SAVE:
-				ret, ok = QFileDialog.getSaveFileName(self._file_callback_parent, title, "", filter, QFileDialog.ShowDirsOnly if is_dir else 0x0)
+				if self._save_file_callback is None:
+					raise RuntimeError('Carla wants to open a file, but no callback function is defined')
+				str_filename = self._save_file_callback(caption, filter)
 			else:
 				return None
 		else:
-			ret = self.__autoload_filename
-		if ret:
-			return_file = c_char_p(ret.encode("utf-8"))
-			retval = cast(byref(return_file), POINTER(c_uintptr))
+			str_filename = self._autoload_filename
+		if str_filename:
+			self._cptr_filename = c_char_p(str_filename.encode("utf-8"))
+			retval = cast(byref(self._cptr_filename), POINTER(c_uintptr))
 			return retval.contents.value
 		return None
 
@@ -2663,7 +2697,6 @@ class Plugin(PatchbayClient):
 	"""
 
 	plugin_def			= None
-	has_user_interface	= False
 
 	_cb_ready			= None
 	_cb_removed			= None

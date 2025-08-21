@@ -11,6 +11,7 @@ import sys, os
 from simple_carla import carla_binaries_path
 from carla_frontend import CarlaFrontendLib
 from carla_shared import DLL_EXTENSION
+from resources_rc import qCleanupResources
 
 
 class CarlaPluginDialog():
