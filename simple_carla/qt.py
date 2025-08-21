@@ -22,8 +22,9 @@ Qt -enabled classes which utilize signals rather than callbacks.
 """
 import logging, traceback, os, sys
 import qt_extras.autofit
-from PyQt5.QtCore import QObject, pyqtSignal
-from simple_carla import _SimpleCarla, Plugin, PatchbayClient, PatchbayPort, PatchbayConnection
+from PyQt5.QtCore import	QObject, pyqtSignal
+from simple_carla import	_SimpleCarla, Plugin, Parameter, \
+							PatchbayClient, PatchbayPort, PatchbayConnection
 
 from carla_backend import (
 
@@ -314,27 +315,36 @@ class CarlaQt(_SimpleCarla, QObject):
 
 
 
-class QtPlugin(Plugin, QObject):
+class AbstractQtPlugin(Plugin):
 	"""
-	This is an abstract class which inherits from QObject, for use by plugins which
-	have no direct user-interface, (i.e. track & channel filter instantiated by a
-	TrackWidget). (Qt does not allow inheriting from multiple classes which
-	extend QObject)
+	This is an abstract class for use by classes which you wish to inherit from a
+	class which itself already inherits from QObject.
 
-	To use:
-		plugin = QtPlugin(plugin_def)
-		plugin.sig_ready.connect(self.plugin_ready)
-		plugin.add_to_carla()
+	Qt does not allow inheriting from multiple classes which extend QObject, so
+	extending QObject in THIS class would make it impossible for you to use it as
+	a base class.
 
+	For example:
+
+	class MyVisualPlugin(QFrame, AbstractQtPlugin):
+
+		# You must define these signals!
+		sig_ready				= pyqtSignal(Plugin)
+		sig_removed 			= pyqtSignal(Plugin)
+		sig_connection_change	= pyqtSignal(PatchbayPort, PatchbayPort, bool)
+		sig_parameter_changed	= pyqtSignal(Plugin, Parameter, float)
+
+		plugin_def = {...}
+
+		def __init__(self, parent, plugin_def, saved_state = None):
+			QFrame.__init__(self, parent)
+			AbstractQtPlugin.__init__(self, plugin_def, saved_state)
+
+	plugin = MyVisualPlugin()
+	plugin.sig_ready.connect(self.plugin_ready)
+	plugin.add_to_carla()
+	layout.addWidget(plugin)
 	"""
-
-	sig_ready				= pyqtSignal(Plugin)
-	sig_removed 			= pyqtSignal(Plugin)
-	sig_connection_change	= pyqtSignal(PatchbayPort, PatchbayPort, bool)
-
-	def __init__(self, plugin_def=None, saved_state=None):
-		QObject.__init__(self)
-		Plugin.__init__(self, plugin_def, saved_state)
 
 	def ready(self):
 		"""
@@ -353,6 +363,41 @@ class QtPlugin(Plugin, QObject):
 	def output_connection_change(self, connection, state):
 		if not self.removing_from_carla:
 			self.sig_connection_change.emit(connection.out_port, connection.in_port, state)
+
+	def parameter_internal_value_changed(self, parameter, value):
+		"""
+		Called by the Carla host engine when the internal value of a parameter has changed.
+		"parameter" is a Parameter object.
+		"value" is the new value of the Parameter.
+
+		The value of the Parameter object will have already been set when this is called.
+		"""
+		self.sig_parameter_changed.emit(self, parameter, value)
+
+
+
+class QtPlugin(AbstractQtPlugin, QObject):
+	"""
+	A class which inherits from both Plugin and QObject. It can be used by plugins
+	which have no direct user-interface, but still need to emit signals.
+
+	For example:
+
+	plugin = QtPlugin(plugin_def)
+	plugin.sig_ready.connect(self.plugin_ready)
+	plugin.add_to_carla()
+
+	"""
+
+	sig_ready				= pyqtSignal(Plugin)
+	sig_removed 			= pyqtSignal(Plugin)
+	sig_connection_change	= pyqtSignal(PatchbayPort, PatchbayPort, bool)
+	sig_parameter_changed	= pyqtSignal(Plugin, Parameter, float)
+
+	def __init__(self, plugin_def=None, saved_state=None):
+		QObject.__init__(self)
+		Plugin.__init__(self, plugin_def, saved_state)
+
 
 
 #  end simple_carla/qt.py

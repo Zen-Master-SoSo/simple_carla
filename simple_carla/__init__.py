@@ -233,6 +233,8 @@ from carla_backend import (
 	FILE_CALLBACK_SAVE
 )
 
+from resources_rc import qCleanupResources
+
 
 __version__ = "1.3.1"
 
@@ -1534,7 +1536,7 @@ class _SimpleCarla(CarlaHostDLL):
 		self._plugin_by_uuid[plugin.uuid] = plugin
 		if self.is_engine_running():
 			if not self._add_plugin(						# Carla parameter
-															# ---------------
+				# ----------------------------------------- # ---------------
 				plugin.plugin_def['build'],					# btype
 				plugin.plugin_def['type'],					# ptype
 				plugin.plugin_def['filename'],				# filename
@@ -1543,7 +1545,7 @@ class _SimpleCarla(CarlaHostDLL):
 				int(plugin.plugin_def['uniqueId'] or 0),	# uniqueId
 				None,										# extraPtr
 				PLUGIN_OPTIONS_NULL							# options
-															# ---------------
+				# ----------------------------------------- # ---------------
 			): raise Exception("Failed to add plugin")
 
 	# -------------------------------------------------------------------
@@ -2680,7 +2682,7 @@ class Plugin(PatchbayClient):
 	# -------------------------------------------------------------------
 	# Internal lifecycle events
 
-	def __init__(self, plugin_def=None, saved_state=None):
+	def __init__(self, plugin_def = None, saved_state = None):
 		if plugin_def is None:
 			if self.plugin_def is None:
 				raise RuntimeError("No definition for plugin")
@@ -2997,7 +2999,7 @@ class Plugin(PatchbayClient):
 
 	def parameter_internal_value_changed(self, parameter, value):
 		"""
-		Called by the Carls host engine when the internal value of a parameter has changed.
+		Called by the Carla host engine when the internal value of a parameter has changed.
 		"parameter" is a Parameter object.
 		"value" is the new value of the Parameter.
 		The value of the Parameter object will have already been set when this is called.
@@ -3307,27 +3309,17 @@ class Parameter:
 				setattr(self, k, v)
 			self.range = self.max - self.min
 
-			#logging.debug('%s min %s max %s step %s stepSmall %s stepLarge %s using unit "%s"',
-				#self.name, self.min, self.max, self.step, self.stepSmall, self.stepLarge, self.unit)
-
 			# Scale points (get_parameter_scalepoint_info) if necessary
-			self.__scale_points = {
-				sp['label']:sp['value'] \
-				for sp in [
-					carla.get_parameter_scalepoint_info(self.plugin_id, self.parameter_id, sc_idx) \
-					for sc_idx in range(self.scalePointCount)
-				]} if self.uses_scalepoints else None
-			if not self.__scale_points is None and len(self.__scale_points) > 2:
-				logging.debug('%s SCALEPOINTS USED:', str(self.plugin()))
-				with StreamToLogger() as slog:
-					print(self.__scale_points, file = slog)
+			self.scale_points = [ ( sp['label'], sp['value'] ) for sp in [
+				carla.get_parameter_scalepoint_info(self.plugin_id, self.parameter_id, sc_idx) \
+				for sc_idx in range(self.scalePointCount)
+			]] if self.uses_scalepoints else None
 
 	def internal_value_changed(self, value):
 		"""
-		Called from Carla engine when the value of this Parameter changed.
+		Called from Carla engine when the value of this Parameter changed, as by a
+		custom dialog rendered via carla.
 		"""
-		#TODO: Test if called when parameter is set, and note in docs
-		#logging.debug('internal_value_changed %s %s', self, value)
 		self.__value = value
 
 	@property
@@ -3344,19 +3336,13 @@ class Parameter:
 		Sets the value of this Parameter both in Carla and cached.
 		"value" must be in the range of this Parameter's "min" and "max".
 		"""
-		if hasattr(self, "min"):
-			if hasattr(self, "max"):
-				if self.min <= value <= self.max:
-					if self.__value != value:
-						self.__value = value
-						Carla.instance.set_parameter_value(self.plugin_id, self.parameter_id, value)
-				else:
-					logging.warning('Parameter "%s" (%s) out of range. Min: %s Max %s',
-						self.name, value, self.min, self.max)
+		if self.__value != value:
+			if self.min <= value <= self.max:
+				self.__value = value
+				Carla.instance.set_parameter_value(self.plugin_id, self.parameter_id, value)
 			else:
-				logging.debug('PLUGIN %s PARAMETER %s HAS NO max', self.plugin(), self)
-		else:
-			logging.debug('PLUGIN %s PARAMETER %s HAS NO min', self.plugin(), self)
+				logging.warning('Parameter "%s" (%s) out of range. Min: %s Max %s',
+					self.name, value, self.min, self.max)
 
 	def get_internal_value(self):
 		"""
