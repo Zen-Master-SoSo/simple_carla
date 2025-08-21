@@ -2737,6 +2737,13 @@ class Plugin(PatchbayClient):
 
 		carla = Carla.instance
 
+		counts = carla.get_audio_port_count_info(self.plugin_id)
+		self._audio_in_count = counts['ins']
+		self._audio_out_count = counts['outs']
+		counts = carla.get_midi_port_count_info(self.plugin_id)
+		self._midi_in_count = counts['ins']
+		self._midi_out_count = counts['outs']
+
 		# basic info
 		# 'type', 'category', 'hints', 'optionsAvailable', 'optionsEnabled', 'filename', 'name', 'label', 'maker', 'copyright', 'iconName', 'uniqueId'
 		info = carla.get_plugin_info(self.plugin_id)
@@ -2784,13 +2791,6 @@ class Plugin(PatchbayClient):
 		if self.use_chunks:
 			with StreamToLogger() as slog:
 				print(carla.get_chunk_data(self.plugin_id), file = slog)
-
-		counts = carla.get_audio_port_count_info(self.plugin_id)
-		self._audio_in_count = counts['ins']
-		self._audio_out_count = counts['outs']
-		counts = carla.get_midi_port_count_info(self.plugin_id)
-		self._midi_in_count = counts['ins']
-		self._midi_out_count = counts['outs']
 
 		# Parameters
 		for parameter_id in range(carla.get_parameter_count(self.plugin_id)):
