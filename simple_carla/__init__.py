@@ -236,7 +236,7 @@ from carla_backend import (
 from resources_rc import qCleanupResources
 
 
-__version__ = "1.4.0"
+__version__ = "1.4.1"
 
 
 # -------------------------------------------------------------------
