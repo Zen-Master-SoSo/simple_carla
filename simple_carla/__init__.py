@@ -2972,6 +2972,27 @@ class Plugin(PatchbayClient):
 		"""
 		return len(self.output_parameters())
 
+	@property
+	def peak_mono(self):
+		"""
+		Returns (float) an estimated volume peak for mono plugins
+		"""
+		return Carla.instance.get_input_peak_value(self.plugin_id, True)
+
+	@property
+	def peak_left(self):
+		"""
+		Returns (float) an estimated volume peak for the left channel
+		"""
+		return Carla.instance.get_input_peak_value(self.plugin_id, True)
+
+	@property
+	def peak_right(self):
+		"""
+		Returns (float) an estimated volume peak for the left channel
+		"""
+		return Carla.instance.get_input_peak_value(self.plugin_id, False)
+
 	def input_parameters(self):
 		"""
 		Returns a list of Parameter objects.
