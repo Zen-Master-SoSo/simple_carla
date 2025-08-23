@@ -22,7 +22,7 @@ An easy-to-use, object-oriented interface to the carla plugin host.
 """
 import os, sys, threading, time, logging, traceback
 from ctypes import byref, cast, c_char_p, c_void_p, POINTER
-from functools import wraps
+from functools import wraps, cached_property
 from struct import pack
 from numpy import zeros as np_zeros
 from log_soso import StreamToLogger
@@ -1280,14 +1280,15 @@ class _SimpleCarla(CarlaHostDLL):
 		the "_plugins" dict.
 		"""
 		if plugin_id in self._plugins:
-			logging.warning('cb_plugin_added: Cannot add plugin %s', plugin_id)
-			logging.warning('"%s" - plugin %s already in _plugins"', carla_plugin_name, self._plugins[plugin_id])
+			logging.error('cb_plugin_added: Cannot add plugin %s', plugin_id)
+			logging.error('"%s" - plugin %s already in _plugins"', carla_plugin_name, self._plugins[plugin_id])
 			return
 		if carla_plugin_name in self._plugin_by_uuid:
 			self._plugins[plugin_id] = self._plugin_by_uuid[carla_plugin_name]
 			self._plugins[plugin_id].post_embed_init(plugin_id) 		# Set up parameters, etc.
 		else:
-			logging.warning('cb_plugin_added: Plugin "%s" not found in _plugin_by_uuid when added', carla_plugin_name)
+			logging.error('cb_plugin_added: Plugin "%s" not found in _plugin_by_uuid when added',
+				carla_plugin_name)
 
 	def cb_plugin_removed(self, plugin_id):
 		if plugin_id in self._plugins:
@@ -1295,7 +1296,8 @@ class _SimpleCarla(CarlaHostDLL):
 			if plugin.uuid in self._plugin_by_uuid:
 				del self._plugin_by_uuid[plugin.uuid]
 			else:
-				logging.warning('cb_plugin_removed: "%s" uuid %s not in self._plugin_by_uuid', plugin, plugin.uuid)
+				logging.error('cb_plugin_removed: "%s" uuid %s not in self._plugin_by_uuid',
+					plugin, plugin.uuid)
 			self._alert_plugin_removed(plugin)
 			# Renumber plugins per Carla plugin_id conventions:
 			for i in range(plugin_id, len(self._plugins) - 1):
@@ -1306,7 +1308,7 @@ class _SimpleCarla(CarlaHostDLL):
 			if self.is_clear():
 				self._alert_last_plugin_removed()
 		else:
-			logging.warning('cb_plugin_removed: Plugin removed (%d) not in _plugins', plugin_id)
+			logging.error('cb_plugin_removed: Plugin removed (%d) not in _plugins', plugin_id)
 
 	def cb_plugin_renamed(self, plugin_id, new_name):
 		self._plugins[plugin_id].plugin_renamed(new_name)
@@ -1316,34 +1318,10 @@ class _SimpleCarla(CarlaHostDLL):
 
 	def cb_parameter_value_changed(self, plugin_id, index, value):
 		if plugin_id in self._plugins:
-			plugin = self._plugins[plugin_id]
-			if index == PARAMETER_NULL:
-				return
-			elif index == PARAMETER_ACTIVE:
-				plugin.active = value != 0
-			elif index == PARAMETER_DRYWET:
-				plugin.dry_wet = value
-			elif index == PARAMETER_VOLUME:
-				plugin.volume = value
-			elif index == PARAMETER_BALANCE_LEFT:
-				plugin.balance_left = value
-			elif index == PARAMETER_BALANCE_RIGHT:
-				plugin.balance_right = value
-			elif index == PARAMETER_PANNING:
-				plugin.panning = value
-			elif index == PARAMETER_CTRL_CHANNEL:
-				plugin.ctrl_channel = value
-			elif index == PARAMETER_MAX:
-				return
-			else:
-				if index in plugin.parameters:
-					parameter = plugin.parameters[index]
-					parameter.internal_value_changed(value)
-					plugin.parameter_internal_value_changed(parameter, value)
-				else:
-					logging.error('Parameter index not in plugin.parameters')
+			self._plugins[plugin_id].internal_value_changed(index, value)
 		else:
-			logging.debug('cb_parameter_value_changed: plugin_id %s not in self._plugins', plugin_id)
+			logging.error('cb_parameter_value_changed: plugin_id %s not in self._plugins',
+				plugin_id)
 
 	def cb_parameter_default_changed(self, plugin_id, index, value):
 		self._plugins[plugin_id].parameter_default_changed(index, value)
@@ -1412,7 +1390,7 @@ class _SimpleCarla(CarlaHostDLL):
 		use "on_client_added".
 		"""
 		if client_id in self._clients:
-			return logging.warning('cb_patchbay_client_added: "%s" already in _clients as "%s"',
+			return logging.error('cb_patchbay_client_added: "%s" already in _clients as "%s"',
 				self._clients[client_id], client_name)
 		plugin_uuid = client_name.rsplit("/")[-1]
 		if plugin_uuid in self._plugin_by_uuid:
@@ -1443,7 +1421,8 @@ class _SimpleCarla(CarlaHostDLL):
 				del self._sys_clients[client.client_name]
 			del self._clients[client_id]
 		else:
-			logging.warning('cb_patchbay_client_removed: Client removed (%s) not in _clients', client_id)
+			logging.error('cb_patchbay_client_removed: Client removed (%s) not in _clients',
+				client_id)
 
 	def cb_patchbay_client_renamed(self, client_id, new_client_name):
 		logging.debug('cb_patchbay_client_renamed: "%s" new name: "%s"',
@@ -1465,14 +1444,14 @@ class _SimpleCarla(CarlaHostDLL):
 			self._clients[client_id].port_added(port_id, port_flags, group_id, port_name)
 			self._alert_port_added(self._clients[client_id].ports[port_id])
 		else:
-			logging.warning('cb_patchbay_port_added: client %s not in _clients', client_id)
+			logging.error('cb_patchbay_port_added: client %s not in _clients', client_id)
 
 	def cb_patchbay_port_removed(self, client_id, port_id):
 		if client_id in self._clients:
 			self._alert_port_removed(self._clients[client_id].ports[port_id])
 			self._clients[client_id].port_removed(port_id)
 		else:
-			logging.warning('cb_patchbay_port_removed: client %s not in _clients', client_id)
+			logging.error('cb_patchbay_port_removed: client %s not in _clients', client_id)
 
 	def cb_patchbay_port_changed(self, client_id, port_id, port_flags, group_id, new_port_name):
 		logging.debug('cb_patchbay_port_changed: client_id %s port_id %s group_id %s new_port_name %s',
@@ -1519,7 +1498,7 @@ class _SimpleCarla(CarlaHostDLL):
 			self._alert_connection_removed(connection)
 			del self._connections[connection_id]
 		else:
-			logging.warning('cb_patchbay_connection_removed: Connection %s not in ._connections',
+			logging.error('cb_patchbay_connection_removed: Connection %s not in ._connections',
 				connection_id)
 
 	# ================================================================================
@@ -2562,26 +2541,25 @@ class PatchbayPort:
 		for conn in self._connections.values():
 			conn.disconnect()
 
+	@cached_property
 	def client(self):
 		"""
 		Returns PatchbayClient.
 		(May return class extending PatchbayClient, i.e. SystemPatchbayClient / Plugin)
 		"""
-		# TODO: Make this a cached property
 		return Carla.instance.client(self.client_id)
 
 	def client_name(self):
 		"""
 		Returns (str) the JACK client name of the PatchbayClient which "owns" this PatchbayPort.
 		"""
-		# TODO: Make this a property
-		return self.client().client_name
+		return self.client.client_name
 
 	def jack_name(self):
 		"""
 		Returns (str) fully qualified name in the format that JACK uses.
 		"""
-		return "{0}:{1}".format(self.client().client_name, self.port_name)
+		return "{0}:{1}".format(self.client.client_name, self.port_name)
 
 	def connections(self):
 		"""
@@ -2627,25 +2605,13 @@ class PatchbayPort:
 		Returns list of PatchbayClient
 		(May return class extending PatchbayClient, i.e. SystemPatchbayClient / Plugin)
 		"""
-		return [ port.client() for port in self.connected_ports() ]
-
-	def encode_saved_state(self):
-		"""
-		Returns a dict which is encoded to JSON when saving a project.
-		"""
-		client = self.client()
-		return {
-			"system"	: isinstance(client, SystemPatchbayClient),
-			"moniker"	: f"{client.moniker}:{self.port_name}",
-			"client"	: client.client_name if isinstance(client, SystemPatchbayClient) else client.uuid,
-			"port"		: self.port_name
-		}
+		return [ port.client for port in self.connected_ports() ]
 
 	def __str__(self):
 		return '<{0} {1} "{2}:{3}">'.format(
 			("Audio" if self.is_audio else "MIDI" if self.is_midi else "CV"),
 			("input" if self.is_input else "output"),
-			self.client().moniker, self.port_name
+			self.client.moniker, self.port_name
 		)
 
 
@@ -2681,10 +2647,8 @@ class PatchbayConnection:
 		return f'<PatchbayConnection {self.connection_id} {self.out_port} to {self.in_port}>'
 
 
-
 # -------------------------------------------------------------------
 # Plugins:
-
 
 class Plugin(PatchbayClient):
 	"""
@@ -2724,6 +2688,8 @@ class Plugin(PatchbayClient):
 		super().__init__()
 		self.saved_state			= saved_state
 		self.original_plugin_name	= self.plugin_def['name']
+		self.client_id				= None	# Assigned by carla
+		self.client_name			= None	# Assigned by carla
 		self.plugin_id				= None
 		self.moniker				= None
 		self.ports_ready			= False
@@ -2880,7 +2846,6 @@ class Plugin(PatchbayClient):
 		Called after post_embed_init() and all ports ready.
 		You can check the state of this plugin using the "Plugin.is_ready" property.
 		"""
-		logging.debug('%s ready', self)
 		if self._cb_ready is not None:
 			self._cb_ready()
 
@@ -3009,16 +2974,6 @@ class Plugin(PatchbayClient):
 		return '<{0} "{1}" (uuid {2}, client_id {3})>'.format(
 			type(self).__name__, self.moniker, self.uuid, self.client_id)
 
-	def idle_fast(self):
-		"""
-		Function which is called at a regular interval by client applications
-		Although this function is not used anywhere in this package, it is included for
-		your convenience.
-		Use it like so:
-			for plugin in Carla.instance.plugins():
-				plugin.idle_fast()
-		"""
-
 	# -------------------------------------------------------------------
 	# Functions called from Carla engine callbacks:
 
@@ -3050,6 +3005,34 @@ class Plugin(PatchbayClient):
 		"""
 		if self._cb_removed is not None:
 			self._cb_removed()
+
+	def internal_value_changed(self, index, value):
+		if index == PARAMETER_NULL:
+			return
+		elif index == PARAMETER_ACTIVE:
+			self.active_changed(bool(value))
+		elif index == PARAMETER_DRYWET:
+			self.dry_wet_changed(value)
+		elif index == PARAMETER_VOLUME:
+			self.volume_changed(value)
+		elif index == PARAMETER_BALANCE_LEFT:
+			self.balance_left_changed(value)
+		elif index == PARAMETER_BALANCE_RIGHT:
+			self.balance_right_changed(value)
+		elif index == PARAMETER_PANNING:
+			self.panning_changed(value)
+		elif index == PARAMETER_CTRL_CHANNEL:
+			self.ctrl_channel_changed(value)
+		elif index == PARAMETER_MAX:
+			return
+		else:
+			if index in self.parameters:
+				parameter = self.parameters[index]
+				parameter.internal_value_changed(value)
+				self.parameter_internal_value_changed(parameter, value)
+			else:
+				logging.error('Parameter "%d" not in "%s" parameters',
+					index, self)
 
 	def parameter_internal_value_changed(self, parameter, value):
 		"""
@@ -3139,8 +3122,31 @@ class Plugin(PatchbayClient):
 		pass
 
 	# -------------------------------------------------------------------
-	# Propery access functions which may trigger GUI changes
-	# or require setting a parameter in the engine:
+	# Property changes triggered by internal value changes from carla
+
+	def active_changed(self, value):
+		self._active = value
+
+	def dry_wet_changed(self, value):
+		self._dry_wet = value
+
+	def volume_changed(self, value):
+		self._volume = value
+
+	def balance_left_changed(self, value):
+		self._balance_left = value
+
+	def balance_right_changed(self, value):
+		self._balance_right = value
+
+	def panning_changed(self, value):
+		self._panning = value
+
+	def ctrl_channel_changed(self, value):
+		self._ctrl_channel = value
+
+	# -------------------------------------------------------------------
+	# Properties accessed only from outside, not by carla
 
 	@property
 	def active(self):
@@ -3154,6 +3160,9 @@ class Plugin(PatchbayClient):
 		"""
 		Set the "active" state of this Plugin.
 		"""
+		self.set_active(value)
+
+	def set_active(self, value):
 		if self.is_ready:
 			self._active = value
 			Carla.instance.set_active(self.plugin_id, bool(value))
@@ -3172,6 +3181,9 @@ class Plugin(PatchbayClient):
 		Sets the dry/wet mix.
 		"value" must be a float value in the range 0.0 to 1.0.
 		"""
+		self.set_dry_wet(value)
+
+	def set_dry_wet(self, value):
 		if isinstance(value, float):
 			if value < 0.0 or value > 1.0:
 				raise ValueError()
@@ -3192,6 +3204,9 @@ class Plugin(PatchbayClient):
 		Sets the volume.
 		"value" must be a float value in the range 0.0 to 1.0.
 		"""
+		self.set_volume(value)
+
+	def set_volume(self, value):
 		if isinstance(value, float):
 			if value < 0.0 or value > 1.0:
 				raise ValueError()
@@ -3212,6 +3227,9 @@ class Plugin(PatchbayClient):
 		Sets the balance of the left channel (if applicable).
 		"value" must be a float value in the range 0.0 to 1.0.
 		"""
+		self.set_balance_left(value)
+
+	def set_balance_left(self, value):
 		if isinstance(value, float):
 			if value < -1.0 or value > 1.0:
 				raise ValueError()
@@ -3232,6 +3250,9 @@ class Plugin(PatchbayClient):
 		Sets the balance of the right channel (if applicable).
 		"value" must be a float value in the range 0.0 to 1.0.
 		"""
+		self.set_balance_right(value)
+
+	def set_balance_right(self, value):
 		if isinstance(value, float):
 			if value < -1.0 or value > 1.0:
 				raise ValueError()
@@ -3262,6 +3283,9 @@ class Plugin(PatchbayClient):
 		Sets the pan value (if applicable).
 		"value" must be a float value in the range 0.0 to 1.0.
 		"""
+		self.set_panning(value)
+
+	def set_panning(self, value):
 		if isinstance(value, float):
 			if value < -1.0 or value > 1.0:
 				raise ValueError()
@@ -3280,7 +3304,9 @@ class Plugin(PatchbayClient):
 		"""
 		Not sure what this does.
 		"""
-		# logging.debug('set ctrl_channel %s', value)
+		self.set_ctrl_channel(value)
+
+	def set_ctrl_channel(self, value):
 		Carla.instance.set_ctrl_channel(self.plugin_id, value)
 		self._ctrl_channel = value
 
@@ -3405,6 +3431,7 @@ class Parameter:
 		self.__value = Carla.instance.get_current_parameter_value(self.plugin_id, self.parameter_id)
 		return self.__value
 
+	@cached_property
 	def plugin(self):
 		"""
 		Returns the Plugin which "owns" this Parameter.

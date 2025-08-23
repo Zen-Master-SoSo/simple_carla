@@ -314,7 +314,6 @@ class CarlaQt(_SimpleCarla, QObject):
 		self.sig_last_plugin_removed.emit()
 
 
-
 class AbstractQtPlugin(Plugin):
 	"""
 	This is an abstract class for use by classes which you wish to inherit from a
@@ -329,10 +328,17 @@ class AbstractQtPlugin(Plugin):
 	class MyVisualPlugin(QFrame, AbstractQtPlugin):
 
 		# You must define these signals!
-		sig_ready				= pyqtSignal(Plugin)
-		sig_removed 			= pyqtSignal(Plugin)
-		sig_connection_change	= pyqtSignal(PatchbayPort, PatchbayPort, bool)
-		sig_parameter_changed	= pyqtSignal(Plugin, Parameter, float)
+		sig_ready						= pyqtSignal(Plugin)
+		sig_removed 					= pyqtSignal(Plugin)
+		sig_connection_change			= pyqtSignal(PatchbayPort, PatchbayPort, bool)
+		sig_parameter_changed			= pyqtSignal(Plugin, Parameter, float)
+		sig_active_changed				= pyqtSignal(Plugin, bool)
+		sig_dry_wet_changed				= pyqtSignal(Plugin, float)
+		sig_volume_changed				= pyqtSignal(Plugin, float)
+		sig_balance_left_changed		= pyqtSignal(Plugin, float)
+		sig_balance_right_changed		= pyqtSignal(Plugin, float)
+		sig_panning_changed				= pyqtSignal(Plugin, float)
+		sig_ctrl_channel_changed		= pyqtSignal(Plugin, float)
 
 		plugin_def = {...}
 
@@ -364,6 +370,37 @@ class AbstractQtPlugin(Plugin):
 		if not self.removing_from_carla:
 			self.sig_connection_change.emit(connection.out_port, connection.in_port, state)
 
+	# -------------------------------------------------------------------
+	# Property changes triggered by internal value changes from carla
+
+	def active_changed(self, value):
+		self._active = value
+		self.sig_active_changed.emit(self, value)
+
+	def dry_wet_changed(self, value):
+		self._dry_wet = value
+		self.sig_dry_wet_changed.emit(self, value)
+
+	def volume_changed(self, value):
+		self._volume = value
+		self.sig_volume_changed.emit(self, value)
+
+	def balance_left_changed(self, value):
+		self._balance_left = value
+		self.sig_balance_left_changed.emit(self, value)
+
+	def balance_right_changed(self, value):
+		self._balance_right = value
+		self.sig_balance_right_changed.emit(self, value)
+
+	def panning_changed(self, value):
+		self._panning = value
+		self.sig_panning_changed.emit(self, value)
+
+	def ctrl_channel_changed(self, value):
+		self._ctrl_channel = value
+		self.sig_ctrl_channel_changed.emit(self, value)
+
 	def parameter_internal_value_changed(self, parameter, value):
 		"""
 		Called by the Carla host engine when the internal value of a parameter has changed.
@@ -373,7 +410,6 @@ class AbstractQtPlugin(Plugin):
 		The value of the Parameter object will have already been set when this is called.
 		"""
 		self.sig_parameter_changed.emit(self, parameter, value)
-
 
 
 class QtPlugin(AbstractQtPlugin, QObject):
@@ -389,15 +425,22 @@ class QtPlugin(AbstractQtPlugin, QObject):
 
 	"""
 
-	sig_ready				= pyqtSignal(Plugin)
-	sig_removed 			= pyqtSignal(Plugin)
-	sig_connection_change	= pyqtSignal(PatchbayPort, PatchbayPort, bool)
-	sig_parameter_changed	= pyqtSignal(Plugin, Parameter, float)
+	sig_ready						= pyqtSignal(Plugin)
+	sig_removed 					= pyqtSignal(Plugin)
+	sig_connection_change			= pyqtSignal(PatchbayPort, PatchbayPort, bool)
+	sig_parameter_changed			= pyqtSignal(Plugin, Parameter, float)
+	sig_active_changed				= pyqtSignal(Plugin, bool)
+	sig_dry_wet_changed				= pyqtSignal(Plugin, float)
+	sig_volume_changed				= pyqtSignal(Plugin, float)
+	sig_balance_left_changed		= pyqtSignal(Plugin, float)
+	sig_balance_right_changed		= pyqtSignal(Plugin, float)
+	sig_panning_changed				= pyqtSignal(Plugin, float)
+	sig_ctrl_channel_changed		= pyqtSignal(Plugin, float)
+
 
 	def __init__(self, plugin_def=None, saved_state=None):
 		QObject.__init__(self)
 		Plugin.__init__(self, plugin_def, saved_state)
-
 
 
 #  end simple_carla/qt.py
