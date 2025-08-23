@@ -18,7 +18,7 @@ build-backend = "flit_core.buildapi"
 sc-plugin-def = "simple_carla.scripts.sc_plugin_def:main"
 
 [bumpver]
-current_version = "1.5.1"
+current_version = "2.0.0"
 version_pattern = "MAJOR.MINOR.PATCH"
 commit_message = "Bump version {old_version} -> {new_version}"
 commit = true
