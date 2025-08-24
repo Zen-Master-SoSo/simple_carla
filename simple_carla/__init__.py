@@ -1540,6 +1540,8 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		Returns Plugin.
 		"plugin_id" is the integer plugin_id assigned by Carla.
+
+		Raises IndexError
 		"""
 		if plugin_id in self._plugins:
 			return  self._plugins[plugin_id]
@@ -1556,12 +1558,19 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		Returns PatchbayClient, either a SystemPatchbayClient or Plugin.
 		"client_id" is the integer client_id assigned by Carla.
+
+		Raises IndexError
 		"""
 		if client_id in self._clients:
 			return  self._clients[client_id]
 		raise IndexError()
 
 	def named_client(self, client_name):
+		"""
+		Returns the PatchbayClient (system or Plugin) with the given "client_name"
+
+		Raises IndexError
+		"""
 		for client in self._clients.values():
 			if client.client_name == client_name:
 				return client
@@ -1578,10 +1587,12 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		Returns the PatchbayClient with the given client_name.
 		"client_name" is the same value that JACK audio connection kit uses.
+
+		Raises IndexError
 		"""
 		if client_name in self._sys_clients:
 			return self._sys_clients[client_name]
-		return None
+		raise IndexError
 
 	def is_clear(self):
 		"""
@@ -1594,14 +1605,15 @@ class _SimpleCarla(CarlaHostDLL):
 
 	def system_clients(self):
 		"""
-		Generator which yields SystemPatchbayClient
+		Generator which yields SystemPatchbayClient - all system clients.
 		"""
 		for client in self._sys_clients.values():
 			return client
 
 	def system_audio_in_clients(self):
 		"""
-		Generator which yields SystemPatchbayClient
+		Generator which yields SystemPatchbayClient - system clients with at least one
+		audio in port.
 		"""
 		for client in self._sys_clients.values():
 			if client.audio_in_count > 0:
@@ -1609,7 +1621,8 @@ class _SimpleCarla(CarlaHostDLL):
 
 	def system_audio_out_clients(self):
 		"""
-		Generator which yields SystemPatchbayClient
+		Generator which yields SystemPatchbayClient - system clients with at least one
+		audio out port.
 		"""
 		for client in self._sys_clients.values():
 			if client.audio_out_count > 0:
@@ -1617,7 +1630,7 @@ class _SimpleCarla(CarlaHostDLL):
 
 	def system_audio_in_ports(self):
 		"""
-		Generator which yields PatchbayPort
+		Generator which yields PatchbayPort - all audio in ports of all system clients.
 		"""
 		for client in self._sys_clients.values():
 			for port in client.audio_ins():
@@ -1625,7 +1638,7 @@ class _SimpleCarla(CarlaHostDLL):
 
 	def system_audio_out_ports(self):
 		"""
-		Generator which yields PatchbayPort
+		Generator which yields PatchbayPort - all audio out ports of all system clients.
 		"""
 		for client in self._sys_clients.values():
 			for port in client.audio_outs():
@@ -1633,7 +1646,8 @@ class _SimpleCarla(CarlaHostDLL):
 
 	def system_midi_in_clients(self):
 		"""
-		Generator which yields SystemPatchbayClient
+		Generator which yields SystemPatchbayClient - system clients with at least one
+		MIDI in port.
 		"""
 		for client in self._sys_clients.values():
 			if client.midi_in_count > 0:
@@ -1641,7 +1655,8 @@ class _SimpleCarla(CarlaHostDLL):
 
 	def system_midi_out_clients(self):
 		"""
-		Generator which yields SystemPatchbayClient
+		Generator which yields SystemPatchbayClient - system clients with at least one
+		MIDI out port.
 		"""
 		for client in self._sys_clients.values():
 			if client.midi_out_count > 0:
@@ -1649,7 +1664,7 @@ class _SimpleCarla(CarlaHostDLL):
 
 	def system_midi_in_ports(self):
 		"""
-		Generator which yields PatchbayPort
+		Generator which yields PatchbayPort - all MIDI in ports of all system clients.
 		"""
 		for client in self._sys_clients.values():
 			for port in client.midi_ins():
@@ -1657,7 +1672,7 @@ class _SimpleCarla(CarlaHostDLL):
 
 	def system_midi_out_ports(self):
 		"""
-		Generator which yields PatchbayPort
+		Generator which yields PatchbayPort - all MIDI out ports of all system clients.
 		"""
 		for client in self._sys_clients.values():
 			for port in client.midi_outs():
@@ -1682,7 +1697,8 @@ class _SimpleCarla(CarlaHostDLL):
 		port1 must be an PatchbayPort which is an output.
 		port2 must be an PatchbayPort which is an intput.
 		"""
-		if not self.patchbay_connect(True, port1.client_id, port1.port_id, port2.client_id, port2.port_id):
+		if not self.patchbay_connect(True, port1.client_id, port1.port_id,
+			port2.client_id, port2.port_id):
 			logging.error('Patchbay connect FAILED! %s -> %s', port1, port2)
 
 	# -------------------------------------------------------------------
@@ -1690,11 +1706,17 @@ class _SimpleCarla(CarlaHostDLL):
 
 	def autoload(self, plugin, filename, callback = None):
 		"""
-		liquidsfz does not have an input file parameter, but instead, requests the host to display an open file dialog from which the user may select an SFZ file to load. This function triggers the plugin's host gui display which will call __file_callback(). When there is a plugin to autoload on deck, __file_callback() will return the "autoload_filename" property of the plugin, instead of showing the file open dialog and returning the result.
+		Tell Carla to load the given filename for the given plugin.
 
+		Some plugins, (such as liquidsfz) do not have an input file parameter, but
+		instead, requests the host to display an open file dialog from which the user
+		may select an SFZ file to load. This function triggers the plugin's host gui
+		display which will call Carla.file_callback(). When there is a plugin to autoload
+		on deck, Carla.file_callback() will return the "autoload_filename" property of
+		the plugin, instead of showing the file open dialog and returning the result.
 		"""
 		if self._autoload_plugin is not None:
-			raise Exception("Cannot set autoload plugin as it is already used by " + self._autoload_plugin)
+			raise Exception(f'Autoload already used by "{self._autoload_plugin}"')
 		self._autoload_plugin = plugin
 		self._autoload_filename = filename
 		#logging.debug('Autoloading "%s"', filename)
@@ -1748,11 +1770,11 @@ class _SimpleCarla(CarlaHostDLL):
 			filter = charPtrToString(filter)
 			if action == FILE_CALLBACK_OPEN:
 				if self._open_file_callback is None:
-					raise RuntimeError('Carla wants to open a file, but no callback function is defined')
+					raise RuntimeError('No callback function defined')
 				str_filename = self._open_file_callback(caption, filter)
 			elif action == FILE_CALLBACK_SAVE:
 				if self._save_file_callback is None:
-					raise RuntimeError('Carla wants to open a file, but no callback function is defined')
+					raise RuntimeError('No callback function defined')
 				str_filename = self._save_file_callback(caption, filter)
 			else:
 				return None
@@ -2336,21 +2358,13 @@ class PatchbayClient:
 	# -------------------------------------------------------------------
 	# Other port access funcs:
 
-	def midi_input_port(self):
-		"""
-		Returns PatchbayPort;
-		the first midi input port owned by this client.
-		"""
-		for port in self.ports.values():
-			if port.is_midi and port.is_input:
-				return port
-		return None
-
 	def named_port(self, port_name):
 		"""
 		Returns PatchbayPort;
 		the port owned by this client whose "port_name" matches exactly.
 		Note that the name does NOT include the client_name portion.
+
+		Raises IndexError
 		"""
 		for port in self.ports.values():
 			if port.port_name == port_name:
