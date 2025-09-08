@@ -3,10 +3,7 @@
 #  Copyright 2024 liyang <liyang@veronica>
 #
 import logging
-from time import sleep
 from PyQt5.QtCore import Qt, QCoreApplication, QObject, pyqtSignal, pyqtSlot, QTimer
-from PyQt5.QtWidgets import QApplication
-from PyQt5.QtWidgets import QMainWindow
 from simple_carla import Plugin, PatchbayPort
 from simple_carla.qt import CarlaQt, QtPlugin
 
@@ -19,18 +16,16 @@ class TestApp(QObject):
 	sig_finished = pyqtSignal()
 
 	def run(self):
-		self.ready = False
 		carla = CarlaQt('carla')
 		for src, tgt in [
 			(carla.sig_engine_started, self.slot_engine_started),
 			(carla.sig_engine_stopped, self.slot_engine_stopped)
 		]: src.connect(tgt, type = Qt.QueuedConnection)
 		if not carla.engine_init():
-			audioError = carla.get_last_error()
-			if audioError:
-				raise Exception("Could not start carla; possible reasons:\n%s" % audioError)
-			else:
-				raise Exception('Could not start carla')
+			audio_error = carla.get_last_error()
+			if audio_error:
+				raise RuntimeError(f'Could not start carla; possible reasons:\n{audio_error}')
+			raise RuntimeError('Could not start carla')
 
 	@pyqtSlot(int, int, int, int, float, str)
 	def slot_engine_started(self, *_):
