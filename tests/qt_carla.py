@@ -4,7 +4,7 @@
 #
 import logging
 from time import sleep
-from PyQt5.QtCore import pyqtSlot
+from PyQt5.QtCore import Qt, QCoreApplication, QObject, pyqtSignal, pyqtSlot, QTimer
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtWidgets import QMainWindow
 from simple_carla import Plugin, PatchbayPort
@@ -14,22 +14,26 @@ from simple_carla.qt import CarlaQt, QtPlugin
 APPLICATION_NAME = 'qt_carla'
 
 
-class TestApp(QMainWindow):
+class TestApp(QObject):
 
-	def __init__(self):
-		super().__init__()
+	sig_finished = pyqtSignal()
+
+	def run(self):
 		self.ready = False
-		carla = CarlaQt(APPLICATION_NAME)
-		carla.sig_engine_started.connect(self.carla_started)
-		carla.sig_engine_stopped.connect(self.carla_stopped)
+		carla = CarlaQt('carla')
+		for src, tgt in [
+			(carla.sig_engine_started, self.slot_engine_started),
+			(carla.sig_engine_stopped, self.slot_engine_stopped)
+		]: src.connect(tgt, type = Qt.QueuedConnection)
 		if not carla.engine_init():
 			audioError = carla.get_last_error()
 			if audioError:
-				raise Exception("Could not connect to JACK; possible reasons:\n%s" % audioError)
-			raise Exception('Could not connect to JACK')
+				raise Exception("Could not start carla; possible reasons:\n%s" % audioError)
+			else:
+				raise Exception('Could not start carla')
 
 	@pyqtSlot(int, int, int, int, float, str)
-	def carla_started(self, plugin_count, process_mode, transport_mode, buffer_size, sample_rate, driver_name):
+	def slot_engine_started(self, *_):
 		logging.debug('======= Engine started ======== ')
 		self.meter = EBUMeter()
 		self.meter.sig_ready.connect(self.meter_ready)
@@ -37,7 +41,7 @@ class TestApp(QMainWindow):
 		self.meter.add_to_carla()
 
 	@pyqtSlot()
-	def carla_stopped(self):
+	def slot_engine_stopped(self):
 		logging.debug('======= Engine stopped ========')
 
 	@pyqtSlot(Plugin)
@@ -49,13 +53,11 @@ class TestApp(QMainWindow):
 	@pyqtSlot(PatchbayPort, PatchbayPort, bool)
 	def meter_connect(self, self_port, other_port, state):
 		logging.debug('Received sig_connection_change: %s to %s: %s', self_port, other_port, state)
-		self.close()
+		self.finish()
 
-	def closeEvent(self, event):
-		logging.debug('Closing');
+	def finish(self):
 		CarlaQt.instance.delete()
-		event.accept()
-
+		self.sig_finished.emit()
 
 
 class EBUMeter(QtPlugin):
@@ -86,12 +88,12 @@ if __name__ == "__main__":
 		level = logging.DEBUG,
 		format = "[%(filename)24s:%(lineno)-4d] %(message)s"
 	)
-	app = QApplication([])
-	main_window = TestApp()
-	main_window.show()
-	logging.debug('Done')
+	app = QCoreApplication([])
+	tester = TestApp(app)
+	tester.sig_finished.connect(app.quit)
+	QTimer.singleShot(0, tester.run)
 	app.exec()
-
+	logging.debug('Done')
 
 
 #  end simple_carla/tests/qt_carla.py
