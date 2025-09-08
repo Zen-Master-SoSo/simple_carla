@@ -2913,7 +2913,7 @@ class Plugin(PatchbayClient):
 				self.parameters[int(key)].value = value
 
 	# -------------------------------------------------------------------
-	# Port parameter counts
+	# Port counts
 
 	@property
 	def audio_in_count(self):
@@ -2943,19 +2943,8 @@ class Plugin(PatchbayClient):
 		"""
 		return self._midi_out_count
 
-	@property
-	def input_parameter_count(self):
-		"""
-		Returns (int)
-		"""
-		return len(self.input_parameters())
-
-	@property
-	def output_parameter_count(self):
-		"""
-		Returns (int)
-		"""
-		return len(self.output_parameters())
+	# -------------------------------------------------------------------
+	# Peaks
 
 	@property
 	def peak_mono(self):
@@ -2978,6 +2967,23 @@ class Plugin(PatchbayClient):
 		"""
 		return Carla.instance.get_input_peak_value(self.plugin_id, False)
 
+	# -------------------------------------------------------------------
+	# Parameters
+
+	@property
+	def input_parameter_count(self):
+		"""
+		Returns (int)
+		"""
+		return len(self.input_parameters())
+
+	@property
+	def output_parameter_count(self):
+		"""
+		Returns (int)
+		"""
+		return len(self.output_parameters())
+
 	def input_parameters(self):
 		"""
 		Returns a list of Parameter objects.
@@ -2989,6 +2995,20 @@ class Plugin(PatchbayClient):
 		Returns a list of Parameter objects.
 		"""
 		return [ param for param in self.parameters.values() if param.is_used and param.is_output ]
+
+	def parameter(self, name):
+		"""
+		Returns the parameter with the given (str) "name"
+
+		Raises IndexError
+		"""
+		for param in self.parameters.values():
+			if param.name == name:
+				return param
+		raise IndexError
+
+	# -------------------------------------------------------------------
+	# Str
 
 	def __str__(self):
 		return '<{0} "{1}" (uuid {2}, client_id {3})>'.format(
