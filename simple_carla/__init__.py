@@ -286,7 +286,7 @@ class _SimpleCarla(CarlaHostDLL):
 	Inherited by: Carla, CarlaQt
 	"""
 
-	idle_interval		= 1 / 50
+	idle_interval		= 1 / 20
 	instance			= None
 	client_name			= None
 	_autoload_plugin	= None
@@ -1705,7 +1705,7 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		if not self.patchbay_connect(True, port1.client_id, port1.port_id,
 			port2.client_id, port2.port_id):
-			logging.error('Patchbay connect FAILED! %s -> %s', port1, port2)
+			raise RuntimeError('Patchbay connect FAILED! %s -> %s', port1, port2)
 
 	# -------------------------------------------------------------------
 	# Plugin filename autoload trick
@@ -2385,6 +2385,22 @@ class PatchbayClient:
 		"""
 		return self._exclusive_clients(self.input_ports())
 
+	def audio_input_clients(self):
+		"""
+		Returns list of PatchbayClient.
+		Return all clients which are connected to all of this PatchbayClient's audio input ports.
+		(May return classes extending PatchbayClient, i.e. SystemPatchbayClient / Plugin)
+		"""
+		return self._exclusive_clients(self.audio_ins())
+
+	def midi_input_clients(self):
+		"""
+		Returns list of PatchbayClient.
+		Return all clients which are connected to all of this PatchbayClient's midi input ports.
+		(May return classes extending PatchbayClient, i.e. SystemPatchbayClient / Plugin)
+		"""
+		return self._exclusive_clients(self.midi_ins())
+
 	def output_clients(self):
 		"""
 		Returns list of PatchbayClient.
@@ -2393,11 +2409,27 @@ class PatchbayClient:
 		"""
 		return self._exclusive_clients(self.output_ports())
 
+	def audio_output_clients(self):
+		"""
+		Returns list of PatchbayClient.
+		Return all clients which are connected to all of this PatchbayClient's audio output ports.
+		(May return classes extending PatchbayClient, i.e. SystemPatchbayClient / Plugin)
+		"""
+		return self._exclusive_clients(self.audio_outs())
+
+	def midi_output_clients(self):
+		"""
+		Returns list of PatchbayClient.
+		Return all clients which are connected to all of this PatchbayClient's midi output ports.
+		(May return classes extending PatchbayClient, i.e. SystemPatchbayClient / Plugin)
+		"""
+		return self._exclusive_clients(self.midi_outs())
+
 	def _exclusive_clients(self, ports):
 		"""
 		Returns list of PatchbayClient.
 		Implements the reduction of port clients to an exlusive set.
-		Used by both "input_clients" and "output_clients" functions.
+		Used by "input_clients", "audio_input_clients", "output_clients", etc.
 		"""
 		return list(set( [
 			client \
