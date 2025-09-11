@@ -19,13 +19,13 @@ class TestApp:
 		carla.on_engine_started(self.carla_started)
 		carla.on_engine_stopped(self.carla_stopped)
 		if not carla.engine_init():
-			audioError = carla.get_last_error()
-			if audioError:
-				raise Exception("Could not connect to JACK; possible reasons:\n%s" % audioError)
+			audio_error = carla.get_last_error()
+			if audio_error:
+				raise Exception("Could not start carla; possible reasons:\n%s" % audio_error)
 			else:
-				raise Exception('Could not connect to JACK')
+				raise Exception('Could not start carla')
 
-	def carla_started(self, plugin_count, process_mode, transport_mode, buffer_size, sample_rate, driver_name):
+	def carla_started(self, *_):
 		logging.debug('======= Engine started ======== ')
 		self.meter = EBUMeter()
 		self.meter.on_ready(self.meter_ready)
@@ -40,9 +40,6 @@ class TestApp:
 		assert(Carla.instance is Carla(APPLICATION_NAME))
 
 	def wait_ready(self):
-		"""
-		Blocks until sig_ready received from MeteringWorker.
-		"""
 		watchdog = 0
 		while not self.ready:
 			watchdog += 1
