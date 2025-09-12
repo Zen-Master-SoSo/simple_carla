@@ -1295,7 +1295,7 @@ class _SimpleCarla(CarlaHostDLL):
 			self._plugins[plugin_id] = self._plugin_by_uuid[carla_plugin_name]
 			self._plugins[plugin_id].post_embed_init(plugin_id) 		# Set up parameters, etc.
 		else:
-			logging.error('cb_plugin_added: Plugin "%s" not found in _plugin_by_uuid when added',
+			logging.error('cb_plugin_added: Plugin "%s" not found in _plugin_by_uuid',
 				carla_plugin_name)
 
 	def cb_plugin_removed(self, plugin_id):
@@ -1514,20 +1514,20 @@ class _SimpleCarla(CarlaHostDLL):
 	# ================================================================================
 
 	def add_plugin(self, plugin):
+		logging.debug('add_plugin %s', plugin.unique_name)
 		self._plugin_by_uuid[plugin.unique_name] = plugin
-		if self.is_engine_running():
-			if not self._add_plugin(						# Carla parameter
-				# ----------------------------------------- # ---------------
-				plugin.plugin_def['build'],					# btype
-				plugin.plugin_def['type'],					# ptype
-				plugin.plugin_def['filename'],				# filename
-				plugin.unique_name,								# name
-				plugin.plugin_def['label'],					# label
-				int(plugin.plugin_def['uniqueId'] or 0),	# uniqueId
-				None,										# extraPtr
-				PLUGIN_OPTIONS_NULL							# options
-				# ----------------------------------------- # ---------------
-			): raise Exception("Failed to add plugin")
+		if not self._add_plugin(						# Carla parameter
+			# ----------------------------------------- # ---------------
+			plugin.plugin_def['build'],					# btype
+			plugin.plugin_def['type'],					# ptype
+			plugin.plugin_def['filename'],				# filename
+			plugin.unique_name,							# name
+			plugin.plugin_def['label'],					# label
+			int(plugin.plugin_def['uniqueId'] or 0),	# uniqueId
+			None,										# extraPtr
+			PLUGIN_OPTIONS_NULL							# options
+			# ----------------------------------------- # ---------------
+		): raise Exception("Failed to add plugin")
 
 	# -------------------------------------------------------------------
 	# Plugin access funcs
@@ -1801,14 +1801,12 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		Generates a "unique_name" string for internal plugin identification.
 		"""
-		unique_names = [ existing_plugin.unique_name \
-			for existing_plugin in self._plugin_by_uuid.values() \
-			if existing_plugin.original_plugin_name == plugin.original_plugin_name ]
-		idx = len(unique_names) + 1
-		unique_name = f'{plugin.original_plugin_name} {idx}'
-		while unique_name in unique_names:
+		sanitized = plugin.original_plugin_name.replace('/', '.')
+		idx = 1
+		unique_name = f'{sanitized} {idx}'
+		while unique_name in self._plugin_by_uuid:
 			idx += 1
-			unique_name = f'{plugin.original_plugin_name} {idx}'
+			unique_name = f'{sanitized} {idx}'
 		return unique_name
 
 
