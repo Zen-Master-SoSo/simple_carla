@@ -1,6 +1,6 @@
 #  simple_carla/plugin_dialog.py
 #
-#  Copyright 2024 liyang <liyang@veronica>
+#  Copyright 2024 Leon Dionne <ldionne@dridesign.sh.cn>
 #
 """
 Provides a means to use Carla's plugin dialog to compile a plugin's
@@ -18,7 +18,7 @@ class CarlaPluginDialog():
 	"""
 	Wrapper for Carla's native plugin selection dialog.
 	This is a singleton class. You may call the constructor repatedly, and it will
-	usethe same instance for the life of the program.
+	use the same instance for the life of the program.
 	"""
 	_instance = None
 	_carla_felib = None

@@ -1,6 +1,6 @@
 #  simple_carla/tests/carla.py
 #
-#  Copyright 2024 liyang <liyang@veronica>
+#  Copyright 2024 Leon Dionne <ldionne@dridesign.sh.cn>
 #
 import logging
 from time import sleep
