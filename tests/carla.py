@@ -4,7 +4,6 @@
 #
 import logging
 from time import sleep
-from PyQt5.QtCore import QCoreApplication
 from simple_carla import Carla, Plugin
 
 APPLICATION_NAME = 'simple_carla'
