@@ -20,9 +20,9 @@ class TestApp:
 		if not carla.engine_init():
 			audio_error = carla.get_last_error()
 			if audio_error:
-				raise Exception("Could not start carla; possible reasons:\n%s" % audio_error)
+				raise RuntimeError("Could not start carla; possible reasons:\n%s" % audio_error)
 			else:
-				raise Exception('Could not start carla')
+				raise RuntimeError('Could not start carla')
 
 	def carla_started(self, *_):
 		logging.debug('======= Engine started ======== ')
