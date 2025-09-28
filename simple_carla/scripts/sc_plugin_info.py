@@ -71,30 +71,35 @@ Output Parameters:    {plugin.output_parameter_count}
 Maker:                {plugin.maker}
 Category:             {plugin.category}
 Label:                {plugin.label}
-Filename:             {plugin.filename}""")
+Filename:             {plugin.filename}
+""")
 		for param in plugin.parameters.values():
-			type_name = 'Boolean' if param.is_boolean \
+			param.type_name = 'Boolean' if param.is_boolean \
 				else 'Integer' if param.is_integer \
 				else 'Float'
-
-			print(f"""
-Parameter:            {param.name}
-Symbol:               {param.symbol}
-Comment:              {param.comment}
-Group Name:           {param.groupName}
-Unit:                 {param.unit}
-Enabled:              {param.is_enabled}
-Type:                 {type_name}
-Min:                  {param.min}
-Max:                  {param.max}
-Step:                 {param.step}
-Automatable:          {param.is_automatable}
-Read only:            {param.is_read_only}
-Uses samplerate:      {param.uses_samplerate}
-Uses scalepoints:     {param.uses_scalepoints}
-Scale point count:    {param.scalePointCount}
-Uses custom text:     {param.uses_custom_text}
-Can be CV controlled: {param.can_be_cv_controlled}""")
+			for label, att in [
+				('Parameter:           ', 'name'),
+				('Symbol:              ', 'symbol'),
+				('Comment:             ', 'comment'),
+				('Group Name:          ', 'groupName'),
+				('Unit:                ', 'unit'),
+				('Enabled:             ', 'is_enabled'),
+				('Type:                ', 'type_name'),
+				('Min:                 ', 'min'),
+				('Max:                 ', 'max'),
+				('Step:                ', 'step'),
+				('Automatable:         ', 'is_automatable'),
+				('Read only:           ', 'is_read_only'),
+				('Uses samplerate:     ', 'uses_samplerate'),
+				('Uses scalepoints:    ', 'uses_scalepoints'),
+				('Scale point count:   ', 'scalePointCount'),
+				('Uses custom text:    ', 'uses_custom_text'),
+				('Can be CV controlled:', 'can_be_cv_controlled')
+			]:
+				try:
+					print(label, getattr(param, att));
+				except AttributeError:
+					pass
 		self.carla.delete()
 		QApplication.instance().quit()
 
