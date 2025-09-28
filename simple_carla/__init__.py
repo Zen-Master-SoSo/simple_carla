@@ -2712,7 +2712,7 @@ class Plugin(PatchbayClient):
 	_cb_ready			= None
 	_cb_removed			= None
 
-	_save_state_keys	= [	'unique_name', 'moniker',
+	_save_state_keys	= [	'moniker',
 							'active', 'volume', 'dry_wet', 'panning', 'balance_left', 'balance_right',
 							'prefer_generic_dialog', 'send_all_sound_off', 'send_channel_pressure', 'send_control_changes',
 							'send_note_aftertouch', 'send_pitchbend', 'send_program_changes', 'skip_sending_notes', 'force_stereo' ]

@@ -21,7 +21,6 @@
 Qt -enabled classes which utilize signals rather than callbacks.
 """
 import logging, traceback, os, sys
-import qt_extras.autofit
 from PyQt5.QtCore import	QObject, pyqtSignal
 from simple_carla import	_SimpleCarla, Plugin, Parameter, \
 							PatchbayClient, PatchbayPort, PatchbayConnection
