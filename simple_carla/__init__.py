@@ -2714,8 +2714,9 @@ class Plugin(PatchbayClient):
 
 	_save_state_keys	= [	'moniker',
 							'active', 'volume', 'dry_wet', 'panning', 'balance_left', 'balance_right',
-							'prefer_generic_dialog', 'send_all_sound_off', 'send_channel_pressure', 'send_control_changes',
-							'send_note_aftertouch', 'send_pitchbend', 'send_program_changes', 'skip_sending_notes', 'force_stereo' ]
+							'prefer_generic_dialog', 'send_all_sound_off', 'send_channel_pressure',
+							'send_control_changes', 'send_note_aftertouch', 'send_pitchbend',
+							'send_program_changes', 'skip_sending_notes', 'force_stereo' ]
 
 	def on_ready(self, callback):
 		self._cb_ready = callback
@@ -2931,7 +2932,8 @@ class Plugin(PatchbayClient):
 		This function is called from "check_ports_ready" before calling Plugin.ready()
 		"""
 		for key, value in self.saved_state["vars"].items():
-			setattr(self, key, value)
+			if not value is None:
+				setattr(self, key, value)
 		for key, value in self.saved_state["parameters"].items():
 			if not value is None and int(key) in self.parameters:
 				self.parameters[int(key)].value = value
@@ -3247,11 +3249,10 @@ class Plugin(PatchbayClient):
 		self.set_dry_wet(value)
 
 	def set_dry_wet(self, value):
-		if isinstance(value, float):
-			if value < 0.0 or value > 1.0:
-				raise ValueError()
-			self._dry_wet = value
-			Carla.instance.set_drywet(self.plugin_id, value)
+		if not isinstance(value, float) or value < 0.0 or value > 1.0:
+			raise ValueError()
+		self._dry_wet = value
+		Carla.instance.set_drywet(self.plugin_id, value)
 
 	@property
 	def volume(self):
@@ -3270,11 +3271,10 @@ class Plugin(PatchbayClient):
 		self.set_volume(value)
 
 	def set_volume(self, value):
-		if isinstance(value, float):
-			if value < 0.0 or value > 1.0:
-				raise ValueError()
-			self._volume = value
-			Carla.instance.set_volume(self.plugin_id, value)
+		if not isinstance(value, float) or value < 0.0 or value > 1.0:
+			raise ValueError()
+		self._volume = value
+		Carla.instance.set_volume(self.plugin_id, value)
 
 	@property
 	def balance_left(self):
@@ -3293,11 +3293,10 @@ class Plugin(PatchbayClient):
 		self.set_balance_left(value)
 
 	def set_balance_left(self, value):
-		if isinstance(value, float):
-			if value < -1.0 or value > 1.0:
-				raise ValueError()
-			self._balance_left = value
-			Carla.instance.set_balance_left(self.plugin_id, value)
+		if not isinstance(value, float) or value < -1.0 or value > 1.0:
+			raise ValueError()
+		self._balance_left = value
+		Carla.instance.set_balance_left(self.plugin_id, value)
 
 	@property
 	def balance_right(self):
@@ -3316,11 +3315,10 @@ class Plugin(PatchbayClient):
 		self.set_balance_right(value)
 
 	def set_balance_right(self, value):
-		if isinstance(value, float):
-			if value < -1.0 or value > 1.0:
-				raise ValueError()
-			self._balance_right = value
-			Carla.instance.set_balance_right(self.plugin_id, value)
+		if not isinstance(value, float) or value < -1.0 or value > 1.0:
+			raise ValueError()
+		self._balance_right = value
+		Carla.instance.set_balance_right(self.plugin_id, value)
 
 	@property
 	def balance_center(self):
@@ -3349,11 +3347,10 @@ class Plugin(PatchbayClient):
 		self.set_panning(value)
 
 	def set_panning(self, value):
-		if isinstance(value, float):
-			if value < -1.0 or value > 1.0:
-				raise ValueError()
-			self._panning = value
-			Carla.instance.set_panning(self.plugin_id, value)
+		if not isinstance(value, float) or value < -1.0 or value > 1.0:
+			raise ValueError()
+		self._panning = value
+		Carla.instance.set_panning(self.plugin_id, value)
 
 	@property
 	def ctrl_channel(self):
