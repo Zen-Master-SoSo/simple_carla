@@ -100,6 +100,7 @@ Filename:             {plugin.filename}
 					print(label, getattr(param, att));
 				except AttributeError:
 					pass
+			print()
 		self.carla.delete()
 		QApplication.instance().quit()
 
