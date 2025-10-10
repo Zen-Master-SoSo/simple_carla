@@ -373,7 +373,7 @@ class _SimpleCarla(CarlaHostDLL):
 		Make sure to call carla_engine_idle() at regular intervals afterwards.
 		driver_name:		Driver to use
 		"""
-		self.__engine_idle_thread = threading.Thread(target=self.__engine_idle)
+		self.__engine_idle_thread = threading.Thread(target = self.__engine_idle)
 		if super().engine_init(driver_name, self.client_name):
 			self._run_idle_loop = True
 			self.__engine_idle_thread.start()
@@ -1514,7 +1514,6 @@ class _SimpleCarla(CarlaHostDLL):
 	# ================================================================================
 
 	def add_plugin(self, plugin):
-		logging.debug('add_plugin %s', plugin.unique_name)
 		self._plugin_by_uuid[plugin.unique_name] = plugin
 		if not self._add_plugin(						# Carla parameter
 			# ----------------------------------------- # ---------------
@@ -2727,7 +2726,7 @@ class Plugin(PatchbayClient):
 	# -------------------------------------------------------------------
 	# Internal lifecycle events
 
-	def __init__(self, plugin_def = None, saved_state = None):
+	def __init__(self, plugin_def = None, *, saved_state = None):
 		if plugin_def is None:
 			if self.plugin_def is None:
 				raise RuntimeError("No definition for plugin")
@@ -2758,7 +2757,7 @@ class Plugin(PatchbayClient):
 		self._unmute_volume			= 1.0
 		self._unbypass_wet			= 1.0
 		self.parameters				= {}								# Parameter objects. Key is parameter_id.
-		self._midi_notes			= np_zeros((16, 128), dtype=bool)	# array for determining whether midi active.
+		self._midi_notes			= np_zeros((16, 128), dtype = bool)	# array for determining whether midi active.
 
 		self.unique_name = Carla.instance.get_unique_name(self)
 		self.moniker = self.unique_name if saved_state is None else saved_state["vars"]["moniker"]

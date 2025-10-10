@@ -48,10 +48,10 @@ class MainWindow(QMainWindow):
 def main():
 	p = argparse.ArgumentParser()
 	p.epilog = __doc__
-	p.add_argument("--full", "-f", action="store_true",
-		help="Spit out the full plugin definition.")
-	p.add_argument("--verbose", "-v", action="store_true",
-		help="Show detailed debug information")
+	p.add_argument("--full", "-f", action = "store_true",
+		help = "Spit out the full plugin definition.")
+	p.add_argument("--verbose", "-v", action = "store_true",
+		help = "Show detailed debug information")
 	options = p.parse_args()
 	logging.basicConfig(
 		level = logging.DEBUG if options.verbose else logging.ERROR,

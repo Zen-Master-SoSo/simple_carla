@@ -341,7 +341,7 @@ class AbstractQtPlugin(Plugin):
 
 		plugin_def = {...}
 
-		def __init__(self, parent, plugin_def, saved_state = None):
+		def __init__(self, parent, plugin_def, *, saved_state = None):
 			QFrame.__init__(self, parent)
 			AbstractQtPlugin.__init__(self, plugin_def, saved_state)
 
@@ -437,9 +437,9 @@ class QtPlugin(AbstractQtPlugin, QObject):
 	sig_ctrl_channel_changed		= pyqtSignal(Plugin, float)
 
 
-	def __init__(self, plugin_def=None, saved_state=None):
+	def __init__(self, plugin_def = None, *, saved_state = None):
 		QObject.__init__(self)
-		Plugin.__init__(self, plugin_def, saved_state)
+		Plugin.__init__(self, plugin_def, saved_state = saved_state)
 
 
 #  end simple_carla/qt.py

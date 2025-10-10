@@ -11,7 +11,7 @@ APPLICATION_NAME = 'simple_carla'
 
 class TestApp:
 
-	def __init__(self, meter_class='EBUMeter'):
+	def __init__(self, meter_class = 'EBUMeter'):
 		super().__init__()
 		self.ready = False
 		carla = Carla(APPLICATION_NAME)
