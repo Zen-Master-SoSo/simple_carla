@@ -278,7 +278,7 @@ class CarlaQt(_SimpleCarla, QObject):
 			logging.warning('Unhandled action %d', action)
 
 		except Exception as e:
-			print(traceback.format_exc())
+			logging.exception(e)
 			exc_type, _, exc_tb = sys.exc_info()
 			fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
 			self.sig_application_error.emit(exc_type.__name__, str(e), fname, exc_tb.tb_lineno)

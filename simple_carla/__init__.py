@@ -2084,7 +2084,7 @@ class Carla(_SimpleCarla):
 			logging.warning('Unhandled action %d', action)
 
 		except Exception as e:
-			print(traceback.format_exc())
+			logging.exception(e)
 			if self._cb_application_error is not None:
 				self._cb_application_error(exc_type.__name__, str(e), fname, exc_tb.tb_lineno)
 
