@@ -3036,7 +3036,7 @@ class Plugin(PatchbayClient):
 	# Str
 
 	def __str__(self):
-		return f'<{type(self).__name__} "{self.unique_name}" (client_id {self.client_id})>'
+		return f'<{self.__class__.__name__} "{self.unique_name}" (client_id {self.client_id})>'
 
 	# -------------------------------------------------------------------
 	# Functions called from Carla engine callbacks:
