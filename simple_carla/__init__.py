@@ -374,11 +374,10 @@ class _SimpleCarla(CarlaHostDLL):
 		driver_name:		Driver to use
 		"""
 		self.__engine_idle_thread = threading.Thread(target = self.__engine_idle)
-		if super().engine_init(driver_name, self.client_name):
-			self._run_idle_loop = True
-			self.__engine_idle_thread.start()
-			return True
-		return False
+		if not super().engine_init(driver_name, self.client_name):
+			raise EngineInitFailure()
+		self._run_idle_loop = True
+		self.__engine_idle_thread.start()
 
 	def engine_idle(self):
 		"""
@@ -3511,6 +3510,16 @@ class Parameter:
 			self.__value
 		)
 
+
+# -------------------------------------------------------------------
+# Custom exceptions:
+
+class EngineInitFailure(RuntimeError):
+	"""
+	Raised if carla fails to initialize.
+	"""
+	def __init__(self):
+		super().__init__('Could not initialize Carla', Carla.instance.get_last_error())
 
 
 #  end simple_carla/__init__.py

@@ -25,6 +25,8 @@ import argparse, logging
 from threading import Event
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5.QtCore import Qt, pyqtSlot
+from qt_extras import DevilBox
+from simple_carla import EngineInitFailure
 from simple_carla.qt import CarlaQt, QtPlugin, Plugin
 from simple_carla.plugin_dialog import CarlaPluginDialog
 
@@ -36,11 +38,7 @@ class MainWindow(QMainWindow):
 		self.ready_event = Event()
 		self.carla = CarlaQt('carla')
 		self.carla.sig_engine_started.connect(self.slot_engine_started)
-		if not self.carla.engine_init():
-			audio_error = self.carla.get_last_error()
-			if audio_error:
-				raise RuntimeError(f'Could not start carla; possible reasons:\n{audio_error}')
-			raise RuntimeError('Could not start carla')
+		self.carla.engine_init()
 
 	@pyqtSlot(int, int, int, int, float, str)
 	def slot_engine_started(self, *_):
@@ -116,9 +114,14 @@ def main():
 		format = "[%(filename)24s:%(lineno)-4d] %(levelname)-8s %(message)s"
 	)
 	app = QApplication([])
-	window = MainWindow()
-	window.show_dialog()
-	app.exec()
+	try:
+		window = MainWindow()
+	except EngineInitFailure as e:
+		DevilBox(f'<h2>{e.args[0]}</h2><p>Possible reason:<br/>{e.args[1]}<p>' \
+			if e.args[1] else e.args[0])
+	else:
+		window.show_dialog()
+		app.exec()
 
 
 if __name__ == "__main__":

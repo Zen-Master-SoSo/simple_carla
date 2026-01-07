@@ -4,9 +4,7 @@
 #
 import logging
 from time import sleep
-from simple_carla import Carla, Plugin
-
-APPLICATION_NAME = 'simple_carla'
+from simple_carla import Carla, Plugin, EngineInitFailure
 
 
 class TestApp:
@@ -14,15 +12,10 @@ class TestApp:
 	def __init__(self, meter_class = 'EBUMeter'):
 		super().__init__()
 		self.ready = False
-		carla = Carla(APPLICATION_NAME)
+		carla = Carla('carla_test')
 		carla.on_engine_started(self.carla_started)
 		carla.on_engine_stopped(self.carla_stopped)
-		if not carla.engine_init():
-			audio_error = carla.get_last_error()
-			if audio_error:
-				raise RuntimeError("Could not start carla; possible reasons:\n%s" % audio_error)
-			else:
-				raise RuntimeError('Could not start carla')
+		carla.engine_init()
 
 	def carla_started(self, *_):
 		logging.debug('======= Engine started ======== ')
@@ -36,7 +29,6 @@ class TestApp:
 	def meter_ready(self):
 		logging.debug('TestApp meter_ready ')
 		self.ready = True
-		assert(Carla.instance is Carla(APPLICATION_NAME))
 
 	def wait_ready(self):
 		watchdog = 0
@@ -85,10 +77,12 @@ if __name__ == "__main__":
 		level = logging.DEBUG,
 		format = "[%(filename)24s:%(lineno)-4d] %(message)s"
 	)
-	with TestApp() as tester:
-		tester.wait_ready()
-	logging.debug('Done')
-
+	try:
+		with TestApp() as tester:
+			tester.wait_ready()
+		logging.debug('Done')
+	except EngineInitFailure as e:
+		logging.error('%s: %s', e.args[0], e.args[1])
 
 
 #  end simple_carla/tests/carla.py

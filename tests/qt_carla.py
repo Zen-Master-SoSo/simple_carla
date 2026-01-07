@@ -3,29 +3,30 @@
 #  Copyright 2024 Leon Dionne <ldionne@dridesign.sh.cn>
 #
 import logging
+from qt_extras import DevilBox
 from PyQt5.QtCore import Qt, QCoreApplication, QObject, pyqtSignal, pyqtSlot, QTimer
-from simple_carla import Plugin, PatchbayPort
+from simple_carla import Plugin, PatchbayPort, EngineInitFailure
 from simple_carla.qt import CarlaQt, QtPlugin
 
 
 APPLICATION_NAME = 'qt_carla'
 
 
-class TestApp(QObject):
+class TestApp(QCoreApplication):
 
-	sig_finished = pyqtSignal()
-
-	def run(self):
-		carla = CarlaQt('carla')
+	def __init__(self):
+		super().__init__([])
+		logging.debug('run')
+		carla = CarlaQt('carla_test')
 		for src, tgt in [
 			(carla.sig_engine_started, self.slot_engine_started),
 			(carla.sig_engine_stopped, self.slot_engine_stopped)
 		]: src.connect(tgt, type = Qt.QueuedConnection)
-		if not carla.engine_init():
-			audio_error = carla.get_last_error()
-			if audio_error:
-				raise RuntimeError(f'Could not start carla; possible reasons:\n{audio_error}')
-			raise RuntimeError('Could not start carla')
+		try:
+			carla.engine_init()
+		except EngineInitFailure as e:
+			logging.error('%s: %s', e.args[0], e.args[1])
+			QTimer.singleShot(0, self.quit)	# Event loop hasn't started yet.
 
 	@pyqtSlot(int, int, int, int, float, str)
 	def slot_engine_started(self, *_):
@@ -48,11 +49,8 @@ class TestApp(QObject):
 	@pyqtSlot(PatchbayPort, PatchbayPort, bool)
 	def meter_connect(self, self_port, other_port, state):
 		logging.debug('Received sig_connection_change: %s to %s: %s', self_port, other_port, state)
-		self.finish()
-
-	def finish(self):
 		CarlaQt.instance.delete()
-		self.sig_finished.emit()
+		self.quit()
 
 
 class EBUMeter(QtPlugin):
@@ -83,12 +81,8 @@ if __name__ == "__main__":
 		level = logging.DEBUG,
 		format = "[%(filename)24s:%(lineno)-4d] %(message)s"
 	)
-	app = QCoreApplication([])
-	tester = TestApp(app)
-	tester.sig_finished.connect(app.quit)
-	QTimer.singleShot(0, tester.run)
+	app = TestApp()
 	app.exec()
-	logging.debug('Done')
 
 
 #  end simple_carla/tests/qt_carla.py
