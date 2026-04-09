@@ -1303,7 +1303,7 @@ class _SimpleCarla(CarlaHostDLL):
 			if plugin.unique_name in self._plugin_by_uuid:
 				del self._plugin_by_uuid[plugin.unique_name]
 			else:
-				logging.error('cb_plugin_removed: "%s" unique_name %s not in self._plugin_by_uuid',
+				logging.error('cb_plugin_removed: "%s" unique_name %s not in "_plugin_by_uuid"',
 					plugin, plugin.unique_name)
 			self._alert_plugin_removed(plugin)
 			# Renumber plugins per Carla plugin_id conventions:
@@ -1315,7 +1315,7 @@ class _SimpleCarla(CarlaHostDLL):
 			if self.is_clear():
 				self._alert_last_plugin_removed()
 		else:
-			logging.error('cb_plugin_removed: Plugin removed (%d) not in _plugins', plugin_id)
+			logging.error('cb_plugin_removed: Plugin removed (%d) not in "_plugins"', plugin_id)
 
 	def cb_plugin_renamed(self, plugin_id, new_name):
 		self._plugins[plugin_id].plugin_renamed(new_name)
@@ -1327,7 +1327,7 @@ class _SimpleCarla(CarlaHostDLL):
 		if plugin_id in self._plugins:
 			self._plugins[plugin_id].internal_value_changed(index, value)
 		else:
-			logging.error('cb_parameter_value_changed: plugin_id %s not in self._plugins',
+			logging.error('cb_parameter_value_changed: plugin_id %s not in "_plugins"',
 				plugin_id)
 
 	def cb_parameter_default_changed(self, plugin_id, index, value):
@@ -1428,7 +1428,7 @@ class _SimpleCarla(CarlaHostDLL):
 				del self._sys_clients[client.client_name]
 			del self._clients[client_id]
 		else:
-			logging.error('cb_patchbay_client_removed: Client removed (%s) not in _clients',
+			logging.error('cb_patchbay_client_removed: Client removed (%s) not in "_clients"',
 				client_id)
 
 	def cb_patchbay_client_renamed(self, client_id, new_client_name):
@@ -1451,14 +1451,14 @@ class _SimpleCarla(CarlaHostDLL):
 			self._clients[client_id].port_added(port_id, port_flags, group_id, port_name)
 			self._alert_port_added(self._clients[client_id].ports[port_id])
 		else:
-			logging.error('cb_patchbay_port_added: client %s not in _clients', client_id)
+			logging.error('cb_patchbay_port_added: client %s not in "_clients"', client_id)
 
 	def cb_patchbay_port_removed(self, client_id, port_id):
 		if client_id in self._clients:
 			self._alert_port_removed(self._clients[client_id].ports[port_id])
 			self._clients[client_id].port_removed(port_id)
 		else:
-			logging.error('cb_patchbay_port_removed: client %s not in _clients', client_id)
+			logging.error('cb_patchbay_port_removed: client %s not in "_clients"', client_id)
 
 	def cb_patchbay_port_changed(self, client_id, port_id, port_flags, group_id, new_port_name):
 		logging.debug('cb_patchbay_port_changed: client_id %s port_id %s group_id %s new_port_name %s',
@@ -1480,17 +1480,21 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		Handles patchbay changes. Passes notification of change to the clients.
 		"""
-		out_client = self._clients[client_out_id]
-		in_client = self._clients[client_in_id]
-		out_port = out_client.ports[port_out_id]
-		in_port = in_client.ports[port_in_id]
-		connection = PatchbayConnection(connection_id, out_port, in_port)
-		self._connections[connection_id] = connection
-		out_port.connection_added(connection)
-		in_port.connection_added(connection)
-		out_client.output_connection_change(connection, True)
-		in_client.input_connection_change(connection, True)
-		self._alert_connection_added(connection)
+		try:
+			out_client = self._clients[client_out_id]
+			in_client = self._clients[client_in_id]
+		except KeyError as e:
+			logging.error('cb_patchbay_connection_added: client_id not in "_clients"')
+		else:
+			out_port = out_client.ports[port_out_id]
+			in_port = in_client.ports[port_in_id]
+			connection = PatchbayConnection(connection_id, out_port, in_port)
+			self._connections[connection_id] = connection
+			out_port.connection_added(connection)
+			in_port.connection_added(connection)
+			out_client.output_connection_change(connection, True)
+			in_client.input_connection_change(connection, True)
+			self._alert_connection_added(connection)
 
 	def cb_patchbay_connection_removed(self, connection_id, zero_1, zero_2):
 		"""
@@ -1505,7 +1509,7 @@ class _SimpleCarla(CarlaHostDLL):
 			self._alert_connection_removed(connection)
 			del self._connections[connection_id]
 		else:
-			logging.error('cb_patchbay_connection_removed: Connection %s not in ._connections',
+			logging.error('cb_patchbay_connection_removed: Connection %s not in "_connections"',
 				connection_id)
 
 	# ================================================================================
@@ -3094,7 +3098,7 @@ class Plugin(PatchbayClient):
 				parameter.internal_value_changed(value)
 				self.parameter_internal_value_changed(parameter, value)
 			else:
-				logging.error('Parameter "%d" not in "%s" parameters',
+				logging.error('Parameter "%d" not in "%s" "parameters"',
 					index, self)
 
 	def parameter_internal_value_changed(self, parameter, value):
