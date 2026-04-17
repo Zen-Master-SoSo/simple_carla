@@ -361,7 +361,8 @@ class _SimpleCarla(CarlaHostDLL):
 		"""
 		Close the engine and delete the current instance to avoid hanging when exiting.
 		"""
-		cls.instance.engine_close()
+		if cls.instance.is_engine_running():
+			cls.instance.engine_close()
 		cls.instance = Carla.instance = None
 
 	# -------------------------------------------------------------------
