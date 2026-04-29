@@ -1530,7 +1530,7 @@ class _SimpleCarla(CarlaHostDLL):
 			None,										# extraPtr
 			PLUGIN_OPTIONS_NULL							# options
 			# ----------------------------------------- # ---------------
-		): raise Exception("Failed to add plugin")
+		): raise Exception(f'Failed to add plugin "{plugin.plugin_def["label"]}"')
 
 	# -------------------------------------------------------------------
 	# Plugin access funcs
