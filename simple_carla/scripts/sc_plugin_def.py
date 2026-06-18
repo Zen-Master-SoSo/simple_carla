@@ -40,9 +40,9 @@ class MainWindow(QMainWindow):
 		self.plugin_def = CarlaPluginDialog(self).exec_dialog()
 		if self.plugin_def is not None:
 			if self.options.full:
-				print(Repr(self.plugin_def))
+				Repr(self.plugin_def).print()
 			else:
-				print(Repr({ k:self.plugin_def[k] for k in ESSENTIALS }))
+				Repr({ k:self.plugin_def[k] for k in ESSENTIALS }).print()
 		self.close()
 
 def main():
