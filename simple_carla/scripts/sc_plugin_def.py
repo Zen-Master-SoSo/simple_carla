@@ -22,7 +22,7 @@ Allows the user to select a plugin using Carla's plugin dialog and writes it's
 plugin_def usable by simple_carla.Plugin to STDOUT.
 """
 import argparse, logging, sys
-from pretty_repr import Repr
+from repr_soso import Repr
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5.QtCore import QTimer
 from simple_carla.plugin_dialog import CarlaPluginDialog
